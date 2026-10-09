@@ -80,8 +80,9 @@ Example: `150 120 55 255` is an opaque gold.
 | `BUTTON_COLOR` | no       | —          | Background of the selected Start menu button.       |
 | `FRAME_COLORS` | yes      | no         | Frame colors block (see 3.7).                       |
 | `SAVE`         | no       | —          | Save file; enables saving (see 3.8).                |
+| `CANNOT_USE_MESSAGE` | no | no         | Message when an item cannot be used (see 3.9).      |
 
-`ROOM` and `MUSIC` may appear only once: a second occurrence makes loading
+`ROOM`, `MUSIC` and `CANNOT_USE_MESSAGE` may appear only once: a second occurrence makes loading
 fail. For the color commands, `TEXT_SIZE` and `SAVE`, if a command is
 repeated, the last value wins.
 
@@ -230,6 +231,24 @@ With it:
 - `CONTINUE` on the title screen loads it (see the title screen
   documentation); "New game" deletes it.
 
+### 3.9. CANNOT_USE_MESSAGE
+
+```text
+CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
+```
+
+Translation key of the message shown when the player uses an item (A)
+on a target that has no matching `USE` block, and the item has no
+`USE_CALLBACK`.
+
+- Without this command, nothing is shown: the A press simply does
+  nothing. It is up to each game to decide whether this feedback is
+  wanted.
+- The message is only shown when a hotspot is targeted. With no target,
+  nothing happens.
+- The value is a translation key, to define in every `.lang` file (see
+  the translations documentation).
+
 ## 4. Complete example
 
 ```text
@@ -247,6 +266,9 @@ ITEM MAGNIFYING_GLASS
 
 # Save slot on the SD card
 SAVE sdmc:/moteur.save
+
+# Feedback when an item is used in the wrong place
+CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
 
 # Message box and Start menu
 TEXT_COLOR 255 255 255 255

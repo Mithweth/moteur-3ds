@@ -27,10 +27,10 @@ const InventoryCallback *callbacks_get_index(size_t index) {
     return &inventory_callbacks[index];
 }
 
-void (*callbacks_inventory_find(const char *name))(void) {
+void (*callbacks_inventory_find(const char *name, InventoryCallbackType type))(void) {
     for (size_t i = 0; i < inventory_callback_count; i++) {
         InventoryCallback *cb = &inventory_callbacks[i];
-        if (strcmp(cb->name, name) == 0) {
+        if (strcmp(cb->name, name) == 0 && cb->type == type) {
             return cb->callback;
         }
     }

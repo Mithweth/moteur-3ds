@@ -13,16 +13,16 @@
 
 // One "#define <name> <index>" entry of a tex3ds header.
 typedef struct {
-    char name[GFX_NAME_MAX];  // full macro name, e.g. "gfx_background_idx"
-    int index;                // image index in the spritesheet
+	char name[GFX_NAME_MAX];  // full macro name, e.g. "gfx_background_idx"
+	int index;                // image index in the spritesheet
 } GfxImageIndex;
 
 // A spritesheet and the name -> index table of its tex3ds header. A zeroed
 // GfxAssets is the "not loaded" state; free it with gfxmap_free_assets().
 typedef struct {
-    C2D_SpriteSheet sheet;
-    GfxImageIndex *indexes;   // owned, count entries
-    size_t count;
+	C2D_SpriteSheet sheet;
+	GfxImageIndex *indexes;   // owned, count entries
+	size_t count;
 } GfxAssets;
 
 // Image `name` (the PNG basename, e.g. "background", without the gfx_

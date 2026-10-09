@@ -67,6 +67,11 @@ contain spaces.
 Indentation is only for readability; block structure is determined by
 the `END_*` directives.
 
+`BACKGROUND_TOP`, `BACKGROUND_BOTTOM`, `SFX_SELECT`, `SFX_CHOICE` and
+`MUSIC` must be placed outside of any block, before or after them.
+Inside a `MENU`, `CONTROLS` or `CREDITS` block, they are unknown
+directives and make loading fail.
+
 ## 2. Backgrounds
 
 Syntax:
@@ -698,8 +703,8 @@ Notes:
 - **Missing argument.** A directive without its arguments makes the
   title screen fail to load.
 - **Unknown directive.** A directive that is unknown, or placed outside
-  its block, is silently ignored. Check the spelling when a setting
-  seems to have no effect.
+  its block, makes the title screen fail to load, with
+  `<file>:<line>: unknown command: <directive>` in the logs.
 - **Sub-pages.** A `CONTROLS` or `CREDITS` block is only useful when
   the corresponding entry is listed in `ORDER`.
 

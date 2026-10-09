@@ -11,14 +11,14 @@
 
 // How gamestate_set() changes a flag.
 typedef enum {
-    GAMESTATE_TOGGLE,  // every set inverts the value
-    GAMESTATE_KEEP     // first set makes it true; later sets do nothing
+	GAMESTATE_TOGGLE,  // every set inverts the value
+	GAMESTATE_KEEP     // first set makes it true; later sets do nothing
 } GameStateType;
 
 typedef struct {
-    char *name;        // owned, strdup'd
-    GameStateType type;
-    bool value;
+	char *name;        // owned, strdup'd
+	GameStateType type;
+	bool value;
 } GameState;
 
 // Load the flag declarations ("<name> TOGGLE|KEEP" per line, '#' comments)

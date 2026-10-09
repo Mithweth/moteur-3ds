@@ -521,7 +521,7 @@ bool timeline_update(u32 keys) {
 }
 
 void timeline_draw_bottom(void) {
-   if (active_full_screen) {
+	if (active_full_screen) {
 		for (int i = 0; i < active_full_screen->sprite_count; i++) {
 			float z = i * 0.01f;
 			const TimelineSprite *sprite = &active_full_screen->sprites[i];

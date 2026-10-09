@@ -123,7 +123,8 @@ Example:
 TEXT BLACK HUD_INVENTORY 115 52 0.5
 ```
 
-Defines the inventory title. This directive is required.
+Defines the inventory title. This directive is optional: without it, no
+title is drawn.
 
 `text` is a localization key. `x` and `y` define the text position and `size`
 defines its rendering scale.
@@ -434,8 +435,8 @@ Example:
 TEXT YELLOW HUD_OBJECT 60 172 0.5
 ```
 
-Defines the static localized label of the panel. This directive is required
-when the `OBJECT` block is present.
+Defines the static localized label of the panel. This directive is optional:
+without it, the panel has no label.
 
 `text` is a localization key.
 
@@ -489,8 +490,8 @@ TARGET
 END_TARGET
 ```
 
-`TEXT` defines the static localized label and is required when the `TARGET`
-block is present. `ITEM` defines how the localized name of the current target
+`TEXT` defines the static localized label; it is optional, and without it
+the panel has no label. `ITEM` defines how the localized name of the current target
 is displayed.
 
 ## 7. Timer
@@ -707,7 +708,7 @@ END_TIMER
 | `BACKGROUND`         | —                             | yes             | Global background of the top screen (section 2).         |
 | `INVENTORY`          | —                             | yes             | Inventory block, closed by `END_INVENTORY` (section 3).  |
 | `BACKGROUND`         | `INVENTORY`                   | no              | Background of the inventory.                             |
-| `TEXT`               | `INVENTORY`                   | yes             | Title of the inventory.                                  |
+| `TEXT`               | `INVENTORY`                   | no              | Title of the inventory.                                  |
 | `ITEM_POSITION`      | `INVENTORY`                   | no (`0 0`)      | Position of the first item of the grid.                  |
 | `ITEM_SIZE`          | `INVENTORY`                   | no (`32`)       | Size of an item in the grid.                             |
 | `SPACING`            | `INVENTORY`                   | no (`14 10`)    | Horizontal and vertical space between items.             |
@@ -723,7 +724,7 @@ END_TIMER
 | `OBJECT`             | —                             | no              | Selected object block, closed by `END_OBJECT` (section 5). |
 | `TARGET`             | —                             | no              | Target block, closed by `END_TARGET` (section 6).        |
 | `BACKGROUND`         | `OBJECT`, `TARGET`            | no              | Background of the panel.                                 |
-| `TEXT`               | `OBJECT`, `TARGET`            | yes (if block)  | Label of the panel.                                      |
+| `TEXT`               | `OBJECT`, `TARGET`            | no              | Label of the panel.                                      |
 | `ITEM`               | `OBJECT`, `TARGET`            | no              | Style of the item or target name.                        |
 | `TIMER`              | —                             | no              | Timer block, closed by `END_TIMER` (section 7).          |
 | `BACKGROUND`         | `TIMER`                       | no              | Background of the timer.                                 |
@@ -742,7 +743,7 @@ Notes:
 - **Repeated directives.** Each directive may appear several times; the
   last value is used. The same goes for a block opened twice: the second
   one completes or overrides the first.
-- **Errors.** Unlike the title screen, the HUD is strict: an unknown
+- **Errors.** Like the title screen, the HUD is strict: an unknown
   directive (or one placed in the wrong block), a missing argument, an
   unknown image, a block without its `END_*`, `COLUMNS 0`, `ROWS 0` or a
   missing required directive all make the HUD fail to load, with a

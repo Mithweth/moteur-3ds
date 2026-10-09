@@ -39,6 +39,7 @@ typedef struct {
 	char *room;
 	char *music;
 	char *items[GAME_CONFIG_MAX_ITEMS];
+	char *cannot_use_message;
 	size_t item_count;
 	FrameStyle frame;
 	u32 text_color;
@@ -211,6 +212,20 @@ static bool game_config_load(const char *filename) {
 			}
 			save_set_filename(value);
 			continue;
+		} else if (strcmp(command, "CANNOT_USE_MESSAGE") == 0) {
+			char *value = strtok(NULL, " ");
+			if (!value) {
+				printf( "%s:%zu: invalid %s\n", filename, line_number, command);
+				fclose(file);
+				return false;
+			}
+			if (game_config.cannot_use_message) {
+				printf("%s:%zu: duplicate CANNOT_USE_MESSAGE\n", filename, line_number);
+				fclose(file);
+				return false;
+			}
+			game_config.cannot_use_message = strdup(value);
+			continue;
 		} else if (strcmp(command, "ITEM") == 0) {
 			char *value = strtok(NULL, " ");
 			if (!value) {
@@ -337,6 +352,7 @@ void game_close(void) {
 	}
 	free(game_config.room);
 	free(game_config.music);
+	free(game_config.cannot_use_message);
 	for (size_t i = 0; i < game_config.item_count; i++) {
 		free(game_config.items[i]);
 	}
@@ -660,13 +676,15 @@ bool game_use_item(const char *id) {
 	}
 	
 	printf("Use item: %s\n", id);
+	return room_execute_hotspot_use(target, id);
+}
 
-	if (room_execute_hotspot_use(target, id)) {
-		return true;
+void game_cannot_use_item(void) {
+	refresh_target();
+	if (!target || !game_config.cannot_use_message) {
+		return;
 	}
-
-	game_show_message("GAME_CANNOT_USE_MESSAGE");
-	return false;
+	game_show_message(game_config.cannot_use_message);
 }
 
 void game_show_message(const char *message_id) {

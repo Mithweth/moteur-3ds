@@ -13,8 +13,8 @@
 
 // Not used anywhere at the moment.
 typedef struct {
-    const char *name;
-    void (*callback)(void);
+	const char *name;
+	void (*callback)(void);
 } GameCallbackEntry;
 
 // A mini-game plugged into the game loop (see extensions/ and
@@ -27,19 +27,19 @@ typedef struct {
 //           (test every resource before freeing it).
 // A mini-game ends itself by calling game_minigame_stop() from update.
 typedef struct {
-    bool (*init)(void);
-    void (*update)(u32 keys, touchPosition touch);
-    void (*draw)(void);
-    void (*close)(void);
+	bool (*init)(void);
+	void (*update)(u32 keys, touchPosition touch);
+	void (*draw)(void);
+	void (*close)(void);
 } MiniGame;
 
 typedef enum {
-    GAME_NORMAL,    // exploring a room: movement, touch and inventory input
-    GAME_MESSAGE,   // a message or examine image is shown; A, B or touch dismisses it
-    GAME_BUSY,      // input blocked until a sound effect ends (see game_wait_for_sfx)
-    GAME_MINIGAME,  // a MiniGame receives the input
-    GAME_TITLE,     // title screen
-    GAME_TIMELINE   // a scripted sequence (intro, game over, ending) is playing
+	GAME_NORMAL,    // exploring a room: movement, touch and inventory input
+	GAME_MESSAGE,   // a message or examine image is shown; A, B or touch dismisses it
+	GAME_BUSY,      // input blocked until a sound effect ends (see game_wait_for_sfx)
+	GAME_MINIGAME,  // a MiniGame receives the input
+	GAME_TITLE,     // title screen
+	GAME_TIMELINE   // a scripted sequence (intro, game over, ending) is playing
 } GameMode;
 
 // Per-frame update, called by main. keys are the keys pressed this frame
@@ -110,9 +110,13 @@ bool game_set_room(const char *name);
 const char *game_target_name(void);
 
 // Uses inventory item id on the current target by running the target's
-// matching USE block. Returns true if a USE block ran; otherwise shows
-// GAME_CANNOT_USE_MESSAGE (only when there is a target) and returns false.
+// matching USE block. Returns true if a USE block ran, false otherwise
+// (including when there is no target).
 bool game_use_item(const char *id);
+
+// Shows the game's CANNOT_USE_MESSAGE, if one is configured and there is
+// a target. Does nothing otherwise.
+void game_cannot_use_item(void);
 
 // Shows the translated message for message_id and switches to GAME_MESSAGE.
 // A later mode-changing action in the same frame (room change, timeline,

@@ -10,21 +10,21 @@
 
 // One catalogue entry. Strings are owned by the inventory module.
 typedef struct {
-    char *id;               // identifier used by room scripts (INVENTORY_ADD, USE...)
-    char *name_id;          // lang key of the name shown in the HUD
-    char *examine_text;     // lang key shown when examining (X), or NULL
-    C2D_Image image;
-    C2D_Image detail_image; // image shown when examining, or empty
-    bool detail_fullscreen; // black out the whole top screen behind detail_image
-    float detail_x;
-    float detail_y;
-    void (*examine_callback)(void); // extra drawing while examining, or NULL
-    void (*use_callback)(void);     // replaces the "use on target" logic, or NULL
+	char *id;               // identifier used by room scripts (INVENTORY_ADD, USE...)
+	char *name_id;          // lang key of the name shown in the HUD
+	char *examine_text;     // lang key shown when examining (X), or NULL
+	C2D_Image image;
+	C2D_Image detail_image; // image shown when examining, or empty
+	bool detail_fullscreen; // black out the whole top screen behind detail_image
+	float detail_x;
+	float detail_y;
+	void (*examine_callback)(void); // extra drawing while examining, or NULL
+	void (*use_callback)(void);     // called on A when no USE block of the target matches, or NULL
 } Item;
 
 typedef enum {
-    INVENTORY_NORMAL,       // browsing items
-    INVENTORY_ACTION        // examining the selected item (X pressed)
+	INVENTORY_NORMAL,       // browsing items
+	INVENTORY_ACTION        // examining the selected item (X pressed)
 } InventoryMode;
 
 // Loads the inventory spritesheet and the item catalogue. Returns false on any

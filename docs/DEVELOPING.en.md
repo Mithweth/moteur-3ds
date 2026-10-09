@@ -282,7 +282,7 @@ IMAGE <image>                          # required, in resources/inventory/
 EXAMINE <text_key>                     # optional: text shown when examining (X)
 DETAIL <image> <x> <y> [FULLSCREEN]    # optional: image shown when examining
 EXAMINE_CALLBACK <name>                # optional: C drawing while examining
-USE_CALLBACK <name>                    # optional: replaces using the item (A)
+USE_CALLBACK <name>                    # optional: using the item (A) when no USE block matches
 END_ITEM
 ```
 
@@ -413,6 +413,7 @@ static MiniGameCallback minigame_callbacks[] = {
 static InventoryCallback inventory_callbacks[] = {
     {
         .name = "secret_code",
+        .type = INVENTORY_CALLBACK_EXAMINE,
         .init = secret_code_init,
         .close = secret_code_close,
         .reset = secret_code_reset,
@@ -422,6 +423,7 @@ static InventoryCallback inventory_callbacks[] = {
     },
     {
         .name = "inject_syringe",
+        .type = INVENTORY_CALLBACK_USE,
         .callback = syringe_use
     }
 };
@@ -432,7 +434,7 @@ The engine itself only sees the interface in `source/callbacks.h`:
 | Function                         | Called by                         | Role                                                    |
 |----------------------------------|-----------------------------------|---------------------------------------------------------|
 | `callbacks_minigame_find(name)`  | `game_minigame_start`             | name → `MiniGame *`, or `NULL` (logged)                 |
-| `callbacks_inventory_find(name)` | `inventory_init`                  | name → `callback` function, or `NULL` (logged)          |
+| `callbacks_inventory_find(name, type)` | `inventory_init`            | name and type → `callback` function, or `NULL` (logged) |
 | `callbacks_init()`               | `game_init`, once                 | calls every inventory callback's `init`                 |
 | `callbacks_reset()`              | `game_start` / `game_load`        | calls every `reset`                                     |
 | `callbacks_close()`              | `game_close`, once at exit        | calls every `close`                                     |
@@ -750,8 +752,14 @@ No change to the engine or the `Makefile` is needed.
 ### 6.1. The `InventoryCallback` contract
 
 ```c
+typedef enum {
+    INVENTORY_CALLBACK_EXAMINE,
+    INVENTORY_CALLBACK_USE
+} InventoryCallbackType;
+
 typedef struct {
     const char *name;
+    InventoryCallbackType type;
     void (*init)(void);     // once per session (allocations)
     void (*close)(void);    // once at exit (frees what init allocated)
     void (*reset)(void);    // at the start of every game (game state)
@@ -764,6 +772,7 @@ typedef struct {
 | Field         | When                                                        | Contract                                                 |
 |---------------|-------------------------------------------------------------|----------------------------------------------------------|
 | `name`        | —                                                           | name used by `EXAMINE_CALLBACK` / `USE_CALLBACK`, and key in the save |
+| `type`        | —                                                           | `INVENTORY_CALLBACK_EXAMINE` (the default when omitted) or `INVENTORY_CALLBACK_USE`: which directive can reference the entry |
 | `init`        | once, in `game_init` (citro2d already initialized)          | long-lived allocations (`C2D_TextBuf`...)                |
 | `close`       | once, in `game_close` at exit (citro2d still initialized)   | free what `init` allocated; also called if `init` never ran: test every resource and reset the pointer to `NULL` |
 | `reset`       | at the start of every game, **before** a load               | reset the state, draw new random values                  |
@@ -771,7 +780,10 @@ typedef struct {
 | `serialize`   | on every save                                               | return a `malloc`'d string (freed by the caller)         |
 | `deserialize` | on load, after `reset`                                      | restore the state from that string                       |
 
-Every field except `name` is optional. Important point: `init`,
+Every field except `name` is optional. `type` defaults to
+`INVENTORY_CALLBACK_EXAMINE` (the first value of the enum): **set
+`.type = INVENTORY_CALLBACK_USE` explicitly** on an entry meant for
+`USE_CALLBACK`, otherwise loading the inventory fails. Important point: `init`,
 `reset`, `serialize` and `deserialize` are called for **every** entry
 in the table, whether the player holds the item or not. An inventory
 callback is therefore also the way to get saved extension state (this
@@ -803,12 +815,26 @@ void secret_code_draw(void) {
 The `text_buf` is created only once, in `secret_code_init()`: no
 allocation on every frame. Coordinates: the top screen is 400×240.
 
-### 6.3. `USE_CALLBACK`: replacing the use action
+### 6.3. `USE_CALLBACK`: using the item outside the expected target
 
-Normally, using an item (A) runs the `USE <item>` block of the current
-target (`game_use_item`). With a `USE_CALLBACK`, your function is
-called **instead**, once, in `GAME_NORMAL`. It can do anything with the
-public API:
+Using an item (A) first runs the `USE <item>` block of the current
+target (`game_use_item`). When there is no such block, or no target at
+all, the item's `USE_CALLBACK` is called instead, once, in
+`GAME_NORMAL`. Without a `USE_CALLBACK`, the engine shows the game's
+`CANNOT_USE_MESSAGE` (see `GAMESTART.md`), only when there is a target
+and only if that message is configured.
+
+| Situation                                | What runs                      |
+|------------------------------------------|--------------------------------|
+| the target has a `USE <item>` block      | that block, never the callback |
+| otherwise, the item has a `USE_CALLBACK` | the callback (target or not)   |
+| otherwise, a target and `CANNOT_USE_MESSAGE` | that message               |
+| otherwise                                | nothing                        |
+
+The room therefore keeps control over the "right" use of the item; the
+callback handles every other use. It is called from the input
+handling, **outside** of any frame: it must not draw (use an `EXAMINE_CALLBACK` for that). It can do anything else
+with the public API:
 
 ```c
 void syringe_use(void) {
@@ -818,9 +844,8 @@ void syringe_use(void) {
 }
 ```
 
-To **add** a behaviour without losing the room's, call
-`game_use_item(id)` yourself; it returns `true` if a `USE` block ran
-(see example 6.5).
+When the callback runs, `game_use_item(id)` has already returned
+`false`: calling it again from the callback is pointless.
 
 ### 6.4. Saving: `serialize` / `deserialize`
 
@@ -856,8 +881,10 @@ ignored.
 
 ### 6.5. Full example: a lighter with limited uses
 
-A fictional callback (the game's lighter has none): the lighter only
-works three times, and the counter survives saving.
+A fictional callback (the game's lighter has none): outside the
+rooms' `USE LIGHTER` blocks, the lighter only lights up three times,
+and the counter survives saving. The rooms' `USE LIGHTER` blocks run
+first and cost no charge.
 
 **`extensions/lighter.h`**
 
@@ -888,16 +915,14 @@ void lighter_reset(void) {
     uses_left = LIGHTER_MAX_USES;
 }
 
+// Only called when no USE LIGHTER block of the target matched.
 void lighter_use(void) {
     if (uses_left == 0) {
         game_show_message("ITEM_LIGHTER_EMPTY");
         return;
     }
-    // Keep the room's USE LIGHTER blocks; only a use that did something
-    // costs a charge.
-    if (game_use_item("LIGHTER")) {
-        uses_left--;
-    }
+    uses_left--;
+    game_show_message("ITEM_LIGHTER_FLAME");
 }
 
 char *lighter_serialize(void) {
@@ -927,6 +952,7 @@ static InventoryCallback inventory_callbacks[] = {
     /* ... existing entries ... */
     {
         .name = "lighter",
+        .type = INVENTORY_CALLBACK_USE,
         .reset = lighter_reset,
         .callback = lighter_use,
         .serialize = lighter_serialize,
@@ -944,16 +970,20 @@ USE_CALLBACK lighter
 END_ITEM
 ```
 
-**Translations**: `ITEM_LIGHTER_EMPTY=The lighter is empty.`
+**Translations**: `ITEM_LIGHTER_EMPTY=The lighter is empty.` and
+`ITEM_LIGHTER_FLAME=A small flame, and then nothing.`
 
 ### 6.6. Current limitations
 
--   An entry has only **one** `callback` function. An item that needs
-    both an `EXAMINE_CALLBACK` *and* a `USE_CALLBACK` uses two entries,
-    with two different names (only one of them carrying `serialize`).
--   Names are resolved when the inventory is loaded. An unknown name
-    makes that load fail, and therefore the game start, with
-    `inventory:<line>: unknown callback: <name>` in the logs.
+-   An entry has only **one** `callback` function and one `type`. An
+    item that needs both an `EXAMINE_CALLBACK` *and* a `USE_CALLBACK`
+    uses two entries, one per type. They may share the same name, but
+    only one of them must carry `serialize`/`deserialize`.
+-   Names are resolved when the inventory is loaded, by name **and**
+    type. An unknown name, or an entry of the wrong type, makes that
+    load fail, and therefore the game start, with
+    `inventory:<line>: unknown EXAMINE_CALLBACK: <name>` (or
+    `unknown USE_CALLBACK`) in the logs.
 -   `GameCallbackEntry`, declared in `game.h`, is not used anywhere.
 
 ## 7. The public API for extensions
@@ -972,6 +1002,7 @@ else (`room.h`, `hud.h`, `title.h`...) is internal.
 | `game_timeline_start(name, callback)`      | starts `romfs:/timelines/<name>`; on failure, goes back to the title screen. Closes the active mini-game, if any. At the end, `END` goes back to the title screen; `RETURN` goes back to the room, then calls `callback` (may be `NULL`), which is never called after `END` or a failure |
 | `game_set_room(name)`                      | changes room                                                                |
 | `game_use_item(id)`                        | runs the target's `USE` block; `true` if a block ran                        |
+| `game_cannot_use_item()`                   | shows `CANNOT_USE_MESSAGE` if configured and there is a target              |
 | `game_target_name()`                       | identifier of the targeted hotspot, or `NULL`                               |
 | `game_wait_for_sfx(path, callback)`        | plays a sound, blocks input until it ends, then calls `callback`            |
 

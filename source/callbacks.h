@@ -7,14 +7,22 @@
 
 #include "game.h"
 
+// Which inventory directive may reference an entry. EXAMINE is the zero value,
+// so it is the default for an entry that does not set .type.
+typedef enum {
+	INVENTORY_CALLBACK_EXAMINE,     // EXAMINE_CALLBACK: draws every frame while examining
+	INVENTORY_CALLBACK_USE          // USE_CALLBACK: logic only, called outside of any frame
+} InventoryCallbackType;
+
 typedef struct {
-    const char *name;
-    void (*init)(void);     // once per session (allocations)
-    void (*close)(void);    // once at exit (frees what init allocated)
-    void (*reset)(void);    // at the start of every game (game state)
-    void (*callback)(void);
-    char* (*serialize)(void);
-    void (*deserialize)(const char*);
+	const char *name;
+	InventoryCallbackType type;
+	void (*init)(void);     // once per session (allocations)
+	void (*close)(void);    // once at exit (frees what init allocated)
+	void (*reset)(void);    // at the start of every game (game state)
+	void (*callback)(void);
+	char* (*serialize)(void);
+	void (*deserialize)(const char*);
 } InventoryCallback;
 
 // Runs the init function of every inventory callback that has one (one-time
@@ -30,9 +38,10 @@ void callbacks_close(void);
 // draws a new secret code). Called by game_start at the start of each game.
 void callbacks_reset(void);
 
-// Returns the inventory callback registered under name, or NULL (and logs it)
-// if there is none.
-void (*callbacks_inventory_find(const char *name))(void);
+// Returns the inventory callback registered under name with the given type,
+// or NULL (and logs it) if there is none. Two entries may share a name if
+// their types differ.
+void (*callbacks_inventory_find(const char *name, InventoryCallbackType type))(void);
 
 // Returns the mini-game registered under name, or NULL (and logs it) if there
 // is none. The returned pointer refers to a static object: do not free it.

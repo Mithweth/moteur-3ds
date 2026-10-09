@@ -23,15 +23,15 @@
 
 // Kind of test performed by a WHEN directive.
 typedef enum {
-    ROOM_CONDITION_STATE_IS,       // gamestate_get(name) == expected
-    ROOM_CONDITION_INVENTORY_HAS   // inventory_has(name) == expected
+	ROOM_CONDITION_STATE_IS,       // gamestate_get(name) == expected
+	ROOM_CONDITION_INVENTORY_HAS   // inventory_has(name) == expected
 } RoomConditionType;
 
 // One WHEN directive. A list of conditions matches only if all of them do.
 typedef struct {
-    RoomConditionType type;
-    char *name;      // gamestate name or inventory item id (owned, strdup'd)
-    bool expected;   // parsed with str_to_bool(): only "true" is true
+	RoomConditionType type;
+	char *name;      // gamestate name or inventory item id (owned, strdup'd)
+	bool expected;   // parsed with str_to_bool(): only "true" is true
 } RoomCondition;
 
 // Action directives allowed inside ACTION and USE blocks.
@@ -39,98 +39,98 @@ typedef struct {
 // changes it too; the rest of the block resumes if the timeline ends with
 // RETURN, as after WAIT_SFX.
 typedef enum {
-    ROOM_ACTION_SET,
-    ROOM_ACTION_INVENTORY_ADD,
-    ROOM_ACTION_INVENTORY_REMOVE,
-    ROOM_ACTION_MESSAGE,
-    ROOM_ACTION_MESSAGE_IMAGE,
-    ROOM_ACTION_SFX,
-    ROOM_ACTION_WAIT_SFX,
-    ROOM_ACTION_ROOM,
-    ROOM_ACTION_TIMELINE,
-    ROOM_ACTION_MINIGAME
+	ROOM_ACTION_SET,
+	ROOM_ACTION_INVENTORY_ADD,
+	ROOM_ACTION_INVENTORY_REMOVE,
+	ROOM_ACTION_MESSAGE,
+	ROOM_ACTION_MESSAGE_IMAGE,
+	ROOM_ACTION_SFX,
+	ROOM_ACTION_WAIT_SFX,
+	ROOM_ACTION_ROOM,
+	ROOM_ACTION_TIMELINE,
+	ROOM_ACTION_MINIGAME
 } RoomActionType;
 
 typedef struct {
-    RoomActionType type;
-    char *argument;  // single argument of the directive (owned, strdup'd)
-    C2D_Image image; // MESSAGE_IMAGE only: resolved while parsing from the
-                     // room's spritesheet
+	RoomActionType type;
+	char *argument;  // single argument of the directive (owned, strdup'd)
+	C2D_Image image; // MESSAGE_IMAGE only: resolved while parsing from the
+	                 // room's spritesheet
 } RoomAction;
 
 // ACTION block of a hotspot or path: its actions run when all its
 // conditions match.
 typedef struct {
-    RoomCondition conditions[ROOM_MAX_CONDITIONS];
-    size_t condition_count;
-    RoomAction actions[ROOM_MAX_ACTIONS];
-    size_t action_count;
+	RoomCondition conditions[ROOM_MAX_CONDITIONS];
+	size_t condition_count;
+	RoomAction actions[ROOM_MAX_ACTIONS];
+	size_t action_count;
 } RoomActionBlock;
 
 // USE block of a hotspot: runs when the player uses a matching item on it.
 typedef struct {
-    char *item;      // inventory item id, or "*" to match any item
-    RoomCondition conditions[ROOM_MAX_CONDITIONS];
-    size_t condition_count;
-    RoomAction actions[ROOM_MAX_ACTIONS];
-    size_t action_count;
+	char *item;      // inventory item id, or "*" to match any item
+	RoomCondition conditions[ROOM_MAX_CONDITIONS];
+	size_t condition_count;
+	RoomAction actions[ROOM_MAX_ACTIONS];
+	size_t action_count;
 } RoomUse;
 
 // Image drawn on the bottom screen while its conditions match.
 typedef struct {
-    C2D_Image image;
-    float x;
-    float y;
-    float z;         // depth passed to C2D_DrawImageAt()
-    RoomCondition conditions[ROOM_MAX_CONDITIONS];
-    size_t condition_count;
+	C2D_Image image;
+	float x;
+	float y;
+	float z;         // depth passed to C2D_DrawImageAt()
+	RoomCondition conditions[ROOM_MAX_CONDITIONS];
+	size_t condition_count;
 } RoomImage;
 
 // Touch area of the bottom screen. A hotspot whose conditions don't match
 // is ignored entirely (not touchable, not targetable).
 typedef struct {
-    int x;
-    int y;
-    int width;
-    int height;
-    char *id;          // also used as the lang key of the HUD target name
-    char *message_id;  // optional lang key shown on the first touch, or NULL
-    C2D_Image message_image;  // optional image shown on the first touch, ignored if message_id is set
-    RoomCondition conditions[ROOM_MAX_CONDITIONS];
-    size_t condition_count;
-    RoomActionBlock action_blocks[ROOM_MAX_ACTION_BLOCKS];
-    size_t action_block_count;
-    RoomUse uses[ROOM_MAX_USES];
-    size_t use_count;
+	int x;
+	int y;
+	int width;
+	int height;
+	char *id;          // also used as the lang key of the HUD target name
+	char *message_id;  // optional lang key shown on the first touch, or NULL
+	C2D_Image message_image;  // optional image shown on the first touch, ignored if message_id is set
+	RoomCondition conditions[ROOM_MAX_CONDITIONS];
+	size_t condition_count;
+	RoomActionBlock action_blocks[ROOM_MAX_ACTION_BLOCKS];
+	size_t action_block_count;
+	RoomUse uses[ROOM_MAX_USES];
+	size_t use_count;
 } Hotspot;
 
 // Movement in one direction. Available when declared (exists) and all its
 // conditions match; moving runs its ACTION blocks (usually a ROOM action).
 typedef struct {
-    bool exists;
-    RoomCondition conditions[ROOM_MAX_CONDITIONS];
-    size_t condition_count;
-    RoomActionBlock action_blocks[ROOM_MAX_ACTION_BLOCKS];
-    size_t action_block_count;
+	bool exists;
+	RoomCondition conditions[ROOM_MAX_CONDITIONS];
+	size_t condition_count;
+	RoomActionBlock action_blocks[ROOM_MAX_ACTION_BLOCKS];
+	size_t action_block_count;
 } Path;
 
 // A loaded room. All strings and the spritesheet are owned by the room and
 // freed by room_close().
 typedef struct {
-    char *path;      // romfs:/rooms/<name>, base directory for SFX files
-    GfxAssets assets;
-    RoomImage images[ROOM_MAX_IMAGES];
-    size_t image_count;
-    Hotspot hotspots[ROOM_MAX_HOTSPOTS];
-    size_t hotspot_count;
-    Path north;
-    Path northwest;
-    Path south;
-    Path southwest;
-    Path east;
-    Path northeast;
-    Path west;
-    Path southeast;
+	char *path;      // romfs:/rooms/<name>, base directory for SFX files
+	GfxAssets assets;
+	RoomImage images[ROOM_MAX_IMAGES];
+	size_t image_count;
+	Hotspot hotspots[ROOM_MAX_HOTSPOTS];
+	size_t hotspot_count;
+	Path north;
+	Path northwest;
+	Path south;
+	Path southwest;
+	Path east;
+	Path northeast;
+	Path west;
+	Path southeast;
 } Room;
 
 // Move in the given direction: runs the path's ACTION blocks if the path is

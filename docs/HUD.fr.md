@@ -131,7 +131,8 @@ Exemple :
 TEXT BLACK HUD_INVENTORY 115 52 0.5
 ```
 
-Définit le titre de l'inventaire. Cette directive est obligatoire.
+Définit le titre de l'inventaire. Cette directive est optionnelle : sans
+elle, aucun titre n'est dessiné.
 
 `text` est une clé de localisation. `x` et `y` définissent la position
 du texte et `size` définit son échelle d'affichage.
@@ -449,7 +450,7 @@ TEXT YELLOW HUD_OBJECT 60 172 0.5
 ```
 
 Définit le libellé statique localisé du panneau. Cette directive est
-obligatoire lorsque le bloc `OBJECT` est présent.
+optionnelle : sans elle, le panneau n'a pas de libellé.
 
 `text` est une clé de localisation.
 
@@ -503,8 +504,8 @@ TARGET
 END_TARGET
 ```
 
-`TEXT` définit le libellé statique localisé ; il est obligatoire lorsque
-le bloc `TARGET` est présent. `ITEM` définit la manière dont le nom
+`TEXT` définit le libellé statique localisé ; il est optionnel, et sans
+lui le panneau n'a pas de libellé. `ITEM` définit la manière dont le nom
 localisé de la cible courante est affiché.
 
 ## 7. Chronomètre
@@ -726,7 +727,7 @@ END_TIMER
 | `BACKGROUND`         | —                             | oui             | Arrière-plan global de l'écran supérieur (section 2).    |
 | `INVENTORY`          | —                             | oui             | Bloc de l'inventaire, fermé par `END_INVENTORY` (section 3). |
 | `BACKGROUND`         | `INVENTORY`                   | non             | Arrière-plan de l'inventaire.                            |
-| `TEXT`               | `INVENTORY`                   | oui             | Titre de l'inventaire.                                   |
+| `TEXT`               | `INVENTORY`                   | non             | Titre de l'inventaire.                                   |
 | `ITEM_POSITION`      | `INVENTORY`                   | non (`0 0`)     | Position du premier objet de la grille.                  |
 | `ITEM_SIZE`          | `INVENTORY`                   | non (`32`)      | Taille d'un objet dans la grille.                        |
 | `SPACING`            | `INVENTORY`                   | non (`14 10`)   | Espace horizontal et vertical entre les objets.          |
@@ -742,7 +743,7 @@ END_TIMER
 | `OBJECT`             | —                             | non             | Bloc de l'objet sélectionné, fermé par `END_OBJECT` (section 5). |
 | `TARGET`             | —                             | non             | Bloc de la cible, fermé par `END_TARGET` (section 6).    |
 | `BACKGROUND`         | `OBJECT`, `TARGET`            | non             | Arrière-plan du panneau.                                 |
-| `TEXT`               | `OBJECT`, `TARGET`            | oui (si bloc)   | Libellé du panneau.                                      |
+| `TEXT`               | `OBJECT`, `TARGET`            | non             | Libellé du panneau.                                      |
 | `ITEM`               | `OBJECT`, `TARGET`            | non             | Style du nom de l'objet ou de la cible.                  |
 | `TIMER`              | —                             | non             | Bloc du chronomètre, fermé par `END_TIMER` (section 7).  |
 | `BACKGROUND`         | `TIMER`                       | non             | Arrière-plan du chronomètre.                             |
@@ -763,7 +764,7 @@ Remarques :
 - **Directives répétées.** Chaque directive peut apparaître plusieurs
   fois ; c'est la dernière valeur qui compte. Il en va de même pour un
   bloc ouvert deux fois : le second complète ou remplace le premier.
-- **Erreurs.** Contrairement à l'écran titre, le HUD est strict : une
+- **Erreurs.** Comme l'écran titre, le HUD est strict : une
   directive inconnue (ou placée dans le mauvais bloc), un argument
   manquant, une image inconnue, un bloc sans son `END_*`, `COLUMNS 0`,
   `ROWS 0` ou une directive obligatoire absente font échouer le

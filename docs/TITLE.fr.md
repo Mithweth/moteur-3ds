@@ -72,6 +72,11 @@ espaces.
 L'indentation ne sert qu'à améliorer la lisibilité ; la structure des
 blocs est déterminée par les directives `END_*`.
 
+`BACKGROUND_TOP`, `BACKGROUND_BOTTOM`, `SFX_SELECT`, `SFX_CHOICE` et
+`MUSIC` se placent en dehors de tout bloc, avant ou après eux. Dans un
+bloc `MENU`, `CONTROLS` ou `CREDITS`, ce sont des directives inconnues
+qui font échouer le chargement.
+
 ## 2. Arrière-plans
 
 Syntaxe :
@@ -720,8 +725,8 @@ Remarques :
 - **Argument manquant.** Une directive sans ses arguments fait échouer
   le chargement de l'écran titre.
 - **Directive inconnue.** Une directive inconnue, ou placée hors de son
-  bloc, est ignorée sans message. Vérifiez l'orthographe quand un
-  réglage semble sans effet.
+  bloc, fait échouer le chargement de l'écran titre, avec
+  `<fichier>:<ligne>: unknown command: <directive>` dans les logs.
 - **Sous-pages.** Un bloc `CONTROLS` ou `CREDITS` n'est utile que si
   l'entrée correspondante figure dans `ORDER`.
 

@@ -83,8 +83,9 @@ Exemple : `150 120 55 255` est un doré opaque.
 | `BUTTON_COLOR`   | non         | —         | Fond du bouton sélectionné dans le menu Start.        |
 | `FRAME_COLORS`   | oui         | non       | Bloc des couleurs du cadre (voir 3.7).                |
 | `SAVE`           | non         | —         | Fichier de sauvegarde ; active la sauvegarde (voir 3.8). |
+| `CANNOT_USE_MESSAGE` | non     | non       | Message quand un objet ne peut pas être utilisé (voir 3.9). |
 
-`ROOM` et `MUSIC` ne peuvent apparaître qu'une seule fois : une seconde
+`ROOM`, `MUSIC` et `CANNOT_USE_MESSAGE` ne peuvent apparaître qu'une seule fois : une seconde
 occurrence fait échouer le chargement. Pour les commandes de couleur,
 `TEXT_SIZE` et `SAVE`, si une commande est répétée, c'est la dernière
 valeur qui compte.
@@ -238,6 +239,23 @@ Avec elle :
 - `CONTINUE` sur l'écran titre la charge (voir la documentation de
   l'écran titre) ; « Nouvelle partie » la supprime.
 
+### 3.9. CANNOT_USE_MESSAGE
+
+```text
+CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
+```
+
+Clé de traduction du message affiché quand le joueur utilise un objet
+(A) sur une cible qui n'a pas de bloc `USE` correspondant, et que
+l'objet n'a pas de `USE_CALLBACK`.
+
+- Sans cette commande, rien n'est affiché : l'appui sur A ne fait
+  simplement rien. C'est à chaque jeu de décider s'il veut ce retour.
+- Le message n'est affiché que si un hotspot est ciblé. Sans cible, il
+  ne se passe rien.
+- La valeur est une clé de traduction, à définir dans chaque fichier
+  `.lang` (voir la documentation des traductions).
+
 ## 4. Exemple complet
 
 ```text
@@ -255,6 +273,9 @@ ITEM MAGNIFYING_GLASS
 
 # Emplacement de sauvegarde sur la carte SD
 SAVE sdmc:/moteur.save
+
+# Retour quand un objet est utilisé au mauvais endroit
+CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
 
 # Boîte de message et menu Start
 TEXT_COLOR 255 255 255 255
