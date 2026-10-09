@@ -56,8 +56,10 @@ void game_draw(C3D_RenderTarget *top, C3D_RenderTarget *bottom);
 // Starts the timeline in romfs:/timelines/<name> and switches to
 // GAME_TIMELINE. Returns true if it started; otherwise goes back to the title
 // screen and returns false. When it ends, END goes back to the title screen
-// and RETURN to GAME_NORMAL in the current room.
-bool game_timeline_start(const char *name);
+// and RETURN to GAME_NORMAL in the current room, then calls callback (may be
+// NULL). callback is never called after END, after a RETURN from the title
+// screen, or when the timeline fails to load.
+bool game_timeline_start(const char *name, void (*callback)(void));
 
 // Releases everything the game holds: the active mini-game, the room, the
 // title screen, the timeline, the music, the message text buffer, the HUD,

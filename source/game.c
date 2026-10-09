@@ -64,6 +64,8 @@ static C2D_TextBuf text_buf;
 static C2D_Text text;
 // Called once the GAME_BUSY sound effect has finished playing.
 static void (*game_busy_callback)(void) = NULL;
+// Called when a timeline ends with RETURN and the game is back in GAME_NORMAL.
+static void (*game_timeline_callback)(void) = NULL;
 static MiniGame *active_minigame = NULL;
 static int game_busy_sfx_channel = -1;
 static bool start_menu;
@@ -319,6 +321,7 @@ static void game_close_modes(void) {
 	target = NULL;
 	message_text = NULL;
 	game_busy_callback = NULL;
+	game_timeline_callback = NULL;
 	title_close();
 	timeline_close();
 	music_stop();
@@ -372,8 +375,9 @@ bool game_title_start(void) {
 
 // A timeline ending with RETURN, started from the game: back to the room,
 // which stayed loaded meanwhile; timeline_close stops the timeline's music, so
-// the game music restarts from the beginning. END, or RETURN from the title
-// screen (no game to go back to): title screen.
+// the game music restarts from the beginning. The callback is cleared before
+// it runs, so it may start another timeline. END, or RETURN from the title
+// screen (no game to go back to): title screen, and the callback is dropped.
 static void game_timeline_stop(void) {
 	if (timeline_exit() != TIMELINE_EXIT_RETURN || timeline_return_mode == GAME_TITLE) {
 		game_title_start();
@@ -384,9 +388,14 @@ static void game_timeline_stop(void) {
 		music_play(game_config.music);
 	}
 	game_mode = GAME_NORMAL;
+	if (game_timeline_callback) {
+		void (*callback)(void) = game_timeline_callback;
+		game_timeline_callback = NULL;
+		callback();
+	}
 }
 
-bool game_timeline_start(const char *name) {
+bool game_timeline_start(const char *name, void (*callback)(void)) {
 	char path[256];
 	// The timeline takes over the screen: close the mini-game now, without
 	// restarting the game music as game_minigame_stop would. A pending
@@ -398,12 +407,13 @@ bool game_timeline_start(const char *name) {
 	game_busy_callback = NULL;
 	timeline_return_mode = (game_mode == GAME_TITLE) ? GAME_TITLE : GAME_NORMAL;
 	snprintf(path, sizeof(path), "romfs:/timelines/%s", name);
-	if (timeline_init(path)) {
-		game_mode = GAME_TIMELINE;
-		return true;
+	if (!timeline_init(path)) {
+		game_title_start();
+		return false;
 	}
-	game_title_start();
-	return false;
+	game_timeline_callback = callback;
+	game_mode = GAME_TIMELINE;
+	return true;
 }
 
 bool game_init(void) {

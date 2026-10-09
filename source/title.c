@@ -588,7 +588,7 @@ void title_update(u32 keys, touchPosition touch) {
             break;
         case TITLE_INTRO:
             title_close();
-            game_timeline_start(intro_timeline);
+            game_timeline_start(intro_timeline, NULL);
             break;
 
         case TITLE_CONTINUE:

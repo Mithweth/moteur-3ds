@@ -35,7 +35,9 @@ typedef struct {
 } RoomCondition;
 
 // Action directives allowed inside ACTION and USE blocks.
-// ROOM, TIMELINE and MINIGAME change the game mode and end the action flow.
+// ROOM and MINIGAME change the game mode and end the action flow. TIMELINE
+// changes it too; the rest of the block resumes if the timeline ends with
+// RETURN, as after WAIT_SFX.
 typedef enum {
     ROOM_ACTION_SET,
     ROOM_ACTION_INVENTORY_ADD,

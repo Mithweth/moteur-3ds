@@ -983,7 +983,7 @@ bool hud_update(void) {
     time_up_triggered = true;
     // Whether the timeline starts or fails (back to the title screen), the
     // mode has changed: report it either way.
-    game_timeline_start(hud_config.timer.timeline);
+    game_timeline_start(hud_config.timer.timeline, NULL);
     return true;
 }
 
