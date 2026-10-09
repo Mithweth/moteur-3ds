@@ -1,5 +1,5 @@
 // save.h
-// Single save slot on the SD card (sdmc:/infernal-house.save). The file is a
+// Single save slot on the SD card (the path given by SAVE in romfs:/game/game). The file is a
 // text file, one entry per line: TIME, ROOM, then one ITEM per inventory item,
 // one STATE per flag set to true and one CALLBACK per extension that has a
 // serialize function. Written atomically through a temporary file, so a

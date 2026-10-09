@@ -31,7 +31,11 @@ install() {
         args+=(-s)
     fi
 
-    until 3dslink "${args[@]}" infernal-house.3dsx; do
+    # The executable is named after TARGET in moteur.mk.
+    local target
+    target=$(sed -n 's/^TARGET[[:space:]]*:=[[:space:]]*//p' moteur.mk)
+
+    until 3dslink "${args[@]}" "${target}.3dsx"; do
         echo "3DS not reachable, retrying in 5 seconds..."
         sleep 5
     done

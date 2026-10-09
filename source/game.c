@@ -198,7 +198,9 @@ static bool game_config_load(const char *filename) {
 				fclose(file);
 				return false;
 			}
-			game_config.music = strdup(value);
+			// Like the title screen's MUSIC: a relative name is looked up in
+			// romfs:/game with .ogg appended, a romfs:/ path is kept as is.
+			game_config.music = audio_resolve_path("romfs:/game", value, ".ogg");
 			continue;
 		} else if (strcmp(command, "SAVE") == 0) {
 			char *value = strtok(NULL, " ");

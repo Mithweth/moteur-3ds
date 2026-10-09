@@ -1,0 +1,12 @@
+LANG_NAME=English
+ORDER=10
+TITLE_GAME=New game
+TITLE_INTRO=Introduction
+TITLE_CONTINUE=Continue
+GAME_OPTION_BACK=Back
+GAME_OPTION_SAVE=Save
+GAME_OPTION_QUIT=Quit
+SAVE_SAVING_ERROR=Error while saving
+SAVE_SAVING_SUCCESS=Saved successfully
+SAVE_LOADING_ERROR=Error while loading
+SAVE_LOADING_SUCCESS=Game loaded successfully
