@@ -471,6 +471,9 @@ static bool load_title(const char *filename) {
         if (entry->choice == TITLE_INTRO && !intro_timeline[0]) {
             continue;
         }
+        if (entry->choice == TITLE_LANG && lang_count() < 2) {
+            continue;
+        }
         choices[visible_count++] = entry;
     }
     choice_count = visible_count;

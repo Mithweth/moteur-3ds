@@ -122,6 +122,10 @@ static bool lang_load(void) {
     return true;
 }
 
+size_t lang_count(void) {
+    return language_count;
+}
+
 void lang_next(void) {
     current_language++;
 

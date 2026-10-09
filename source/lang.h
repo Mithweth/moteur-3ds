@@ -14,6 +14,10 @@ void lang_close(void);
 // Pointers previously returned by lang_get become invalid.
 void lang_next(void);
 
+// Number of language files found by lang_init. The title screen hides its
+// LANG entry when there is only one.
+size_t lang_count(void);
+
 // Returns the translation of key, or key itself if it isn't translated. The
 // returned string is owned by the module and valid until the next lang_next
 // or lang_close.
