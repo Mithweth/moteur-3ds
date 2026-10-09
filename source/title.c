@@ -1,10 +1,11 @@
 // title.c
 // Title screen implementation. The menu entries are translation keys looked
 // up on every frame, so switching language (lang_next) takes effect at once.
-// The layout (backgrounds, sounds, menu order and style, controls and
+// The layout (backgrounds, sounds, music, menu order and style, controls and
 // credits pages) comes from the romfs:/game/title configuration file, and the
 // images from the romfs:/game sprite sheet. Both are loaded by title_init and
-// released by title_close (called when a game or the intro starts).
+// released by title_close (called when a game or the intro starts), which
+// also stops the title music.
 
 #include <3ds.h>
 #include <citro2d.h>
@@ -40,7 +41,7 @@ typedef enum {
 static size_t selected;
 static OptionChoice option = OPTION_NONE;
 static C2D_TextBuf text_buf;
-static C2D_SpriteSheet assets;
+static GfxAssets assets;
 
 // Capacity of the configuration arrays; extra lines are reported and ignored.
 #define TITLE_MAX_IMAGES       8
@@ -90,6 +91,7 @@ typedef struct {
     C2D_Image background_credits;
     char *sfx_select;
     char *sfx_choice;
+    char *music;
     TitleMenu menu;
     TitleImage controls_images[TITLE_MAX_IMAGES];
     size_t controls_image_count;
@@ -217,7 +219,7 @@ static bool load_title(const char *filename) {
                 fclose(file);
                 return false;
             }
-            title_config.background_top = gfxmap_get_image(assets, img);
+            title_config.background_top = gfxmap_get_image(&assets, img);
             continue;
         }
 
@@ -228,7 +230,7 @@ static bool load_title(const char *filename) {
                 fclose(file);
                 return false;
             }
-            title_config.background_bottom = gfxmap_get_image(assets, img);
+            title_config.background_bottom = gfxmap_get_image(&assets, img);
             continue;
         }
 
@@ -239,6 +241,7 @@ static bool load_title(const char *filename) {
                 fclose(file);
                 return false;
             }
+            free(title_config.sfx_select);
             title_config.sfx_select = audio_resolve_path("romfs:/game", snd, ".raw");
             continue;
         }
@@ -250,7 +253,20 @@ static bool load_title(const char *filename) {
                 fclose(file);
                 return false;
             }
+            free(title_config.sfx_choice);
             title_config.sfx_choice = audio_resolve_path("romfs:/game", snd, ".raw");
+            continue;
+        }
+
+        if (strcmp(command, "MUSIC") == 0) {
+            char *snd = strtok(NULL, " ");
+            if (!snd) {
+                printf("%s:%zu: missing argument\n", filename, line_number);
+                fclose(file);
+                return false;
+            }
+            free(title_config.music);
+            title_config.music = audio_resolve_path("romfs:/game", snd, ".ogg");
             continue;
         }
 
@@ -356,7 +372,7 @@ static bool load_title(const char *filename) {
                     return false;
                 }
                 TitleImage *image = &title_config.controls_images[title_config.controls_image_count++];
-                image->image = gfxmap_get_image(assets, name);
+                image->image = gfxmap_get_image(&assets, name);
                 image->x = atof(x);
                 image->y = atof(y);
             } else if (strcmp(command, "TEXT") == 0) {
@@ -394,7 +410,7 @@ static bool load_title(const char *filename) {
                     fclose(file);
                     return false;
                 }
-                title_config.background_controls = gfxmap_get_image(assets, img);
+                title_config.background_controls = gfxmap_get_image(&assets, img);
             }
             continue;
         }
@@ -430,7 +446,7 @@ static bool load_title(const char *filename) {
                     return false;
                 }
                 TitleImage *image = &title_config.credits_images[title_config.credits_image_count++];
-                image->image = gfxmap_get_image(assets, name);
+                image->image = gfxmap_get_image(&assets, name);
                 image->x = atof(x);
                 image->y = atof(y);
             } else if (strcmp(command, "BACKGROUND") == 0) {
@@ -440,7 +456,7 @@ static bool load_title(const char *filename) {
                     fclose(file);
                     return false;
                 }
-                title_config.background_credits = gfxmap_get_image(assets, img);
+                title_config.background_credits = gfxmap_get_image(&assets, img);
             }
             continue;
         }
@@ -492,6 +508,12 @@ bool title_init(void) {
 
     if (!text_buf) {
         text_buf = C2D_TextBufNew(4096);
+    }
+
+    // Started only once the whole file is valid, so a load failure never
+    // leaves the music of a title screen that is not shown.
+    if (title_config.music) {
+        music_play(title_config.music);
     }
 
     return true;
@@ -679,6 +701,7 @@ void title_draw_bottom(void) {
 // title_init (e.g. when coming back from the intro) starts from scratch
 // instead of appending to the previous menu, controls and credits.
 void title_close(void) {
+    music_stop();
     for (size_t i = 0; i < title_config.controls_text_count; i++) {
         free(title_config.controls_texts[i].id);
     }
@@ -688,6 +711,7 @@ void title_close(void) {
     }
     free(title_config.sfx_select);
     free(title_config.sfx_choice);
+    free(title_config.music);
     memset(&title_config, 0, sizeof(title_config));
     choice_count = 0;
     selected = 0;
@@ -696,8 +720,5 @@ void title_close(void) {
         C2D_TextBufDelete(text_buf);
         text_buf = NULL;
     }
-    if (assets) {
-        C2D_SpriteSheetFree(assets);
-        assets = NULL;
-    }
+    gfxmap_free_assets(&assets);
 }

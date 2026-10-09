@@ -4,40 +4,15 @@
 #include <string.h>
 #include "callbacks.h"
 #include "game.h"
-#include "secret_code.h"
-#include "syringe.h"
-#include "simon.h"
-#include "piano.h"
-#include "measure.h"
-#include "digicode.h"
 
 typedef struct {
     const char *name;
     MiniGame *minigame;
 } MiniGameCallback;
 
-static MiniGameCallback minigame_callbacks[] = {
-    { "simon",    &simon },
-    { "piano",    &piano },
-    { "measure",  &measure },
-    { "digicode", &digicode }
-};
+static MiniGameCallback minigame_callbacks[] = {};
 
-static InventoryCallback inventory_callbacks[] = {
-    {
-        .name = "secret_code",
-        .init = secret_code_init,
-        .close = secret_code_close,
-        .reset = secret_code_reset,
-        .callback = secret_code_draw,
-        .serialize = secret_code_serialize,
-        .deserialize = secret_code_deserialize
-    },
-    {
-        .name = "inject_syringe",
-        .callback = syringe_use
-    }
-};
+static InventoryCallback inventory_callbacks[] = {};
 
 static const size_t minigame_callback_count = sizeof(minigame_callbacks) / sizeof(minigame_callbacks[0]);
 static const size_t inventory_callback_count = sizeof(inventory_callbacks) / sizeof(inventory_callbacks[0]);

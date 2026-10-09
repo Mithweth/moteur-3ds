@@ -1,7 +1,6 @@
 // gfxmap.c
-// Global sprite name -> spritesheet index table, filled from tex3ds headers.
-// There is a single table for the whole game: each gfxmap_load() replaces
-// it, so callers resolve their images immediately after loading.
+// Sprite name -> spritesheet index tables, filled from tex3ds headers. Each
+// GfxAssets owns the table of its own header, so loads don't interfere.
 #include <citro2d.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,43 +9,39 @@
 #include "gfxmap.h"
 
 
-#define GFX_MAX_IMAGES 128
-static GfxImageIndex image_indexes[GFX_MAX_IMAGES];
-static size_t image_index_count = 0;
-
 // Callers pass the short PNG name; tex3ds names the macros gfx_<name>_idx
 // because every header is generated from a file named gfx.t3s.
-int gfxmap_get_index(const char *name) {
-	char index_name[256];
-	snprintf(index_name, sizeof(index_name), "gfx_%s_idx", name);
-    for (size_t i = 0; i < image_index_count; i++) {
-        if (strcmp(image_indexes[i].name, index_name) == 0) {
-            return image_indexes[i].index;
+static int gfxmap_get_index(const GfxAssets *assets, const char *name) {
+    char index_name[256];
+    snprintf(index_name, sizeof(index_name), "gfx_%s_idx", name);
+    for (size_t i = 0; i < assets->count; i++) {
+        if (strcmp(assets->indexes[i].name, index_name) == 0) {
+            return assets->indexes[i].index;
         }
     }
     return -1;
 }
 
-C2D_Image gfxmap_get_image(C2D_SpriteSheet assets, const char *name) {
-    int index = gfxmap_get_index(name);
+C2D_Image gfxmap_get_image(const GfxAssets *assets, const char *name) {
+    int index = gfxmap_get_index(assets, name);
 
     if (index < 0) {
-    	printf("Image not found: %s\n", name);
+        printf("Image not found: %s\n", name);
         return (C2D_Image){0};
     }
-    return C2D_SpriteSheetGetImage(assets, index);
+    return C2D_SpriteSheetGetImage(assets->sheet, index);
 }
 
-bool gfxmap_load(const char *filename) {
+// Fill assets->indexes from tex3ds header `filename`. On failure the table
+// is freed and left empty, never half-filled.
+static bool gfxmap_load(const char *filename, GfxAssets *assets) {
     FILE *f = fopen(filename, "r");
     if (!f) {
         printf("Cannot open %s\n", filename);
         return false;
     }
 
-    // Drop the previous table: indexes are only valid for this header.
-    image_index_count = 0;
-
+    size_t capacity = 0;
     char line[256];
 
     while (fgets(line, sizeof(line), f)) {
@@ -58,8 +53,6 @@ bool gfxmap_load(const char *filename) {
             continue;
         }
 
-        // Keep only "#define <name>_idx <n>" lines; anything else in the
-        // header is ignored.
         if (strcmp(directive, "#define") != 0) {
             continue;
         }
@@ -69,45 +62,61 @@ bool gfxmap_load(const char *filename) {
         if (len < 4 || strcmp(name + len - 4, "_idx") != 0) {
             continue;
         }
-        int index = atoi(value);
 
-        if (image_index_count >= GFX_MAX_IMAGES) {
-            printf("Too many images in %s\n", filename);
-            fclose(f);
-            return false;
+        if (assets->count == capacity) {
+            size_t new_capacity = capacity ? capacity * 2 : 32;
+            GfxImageIndex *grown = realloc(assets->indexes, new_capacity * sizeof(*grown));
+            if (!grown) {
+                printf("Out of memory loading %s\n", filename);
+                free(assets->indexes);
+                assets->indexes = NULL;
+                assets->count = 0;
+                fclose(f);
+                return false;
+            }
+            assets->indexes = grown;
+            capacity = new_capacity;
         }
 
-        GfxImageIndex *entry = &image_indexes[image_index_count++];
+        GfxImageIndex *entry = &assets->indexes[assets->count++];
 
         strcpy(entry->name, name);
-        entry->index = index;
+        entry->index = atoi(value);
     }
-    printf("%s: Loaded %zu images\n", filename, image_index_count);
+    printf("%s: Loaded %zu images\n", filename, assets->count);
     fclose(f);
     return true;
 }
 
-bool gfxmap_load_assets(const char *path, C2D_SpriteSheet *assets) {
+bool gfxmap_load_assets(const char *path, GfxAssets *assets) {
     char filename[256];
 
+    *assets = (GfxAssets){0};
     snprintf(filename, sizeof(filename), "%s/gfx.t3x", path);
 
-    *assets = C2D_SpriteSheetLoad(filename);
-    if (!*assets) {
+    assets->sheet = C2D_SpriteSheetLoad(filename);
+    if (!assets->sheet) {
         printf("Cannot load spritesheet: %s\n", filename);
         return false;
     }
 
     snprintf(filename, sizeof(filename), "%s/gfx.h", path);
 
-    if (!gfxmap_load(filename)) {
+    if (!gfxmap_load(filename, assets)) {
         printf("Cannot load gfx headers: %s\n", filename);
-        C2D_SpriteSheetFree(*assets);
-        *assets = NULL;
+        gfxmap_free_assets(assets);
         return false;
     }
 
     return true;
+}
+
+void gfxmap_free_assets(GfxAssets *assets) {
+    if (assets->sheet) {
+        C2D_SpriteSheetFree(assets->sheet);
+    }
+    free(assets->indexes);
+    *assets = (GfxAssets){0};
 }
 
 u32 gfxmap_parse_color(const char *name) {

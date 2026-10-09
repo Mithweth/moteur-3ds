@@ -55,7 +55,8 @@ void game_draw(C3D_RenderTarget *top, C3D_RenderTarget *bottom);
 
 // Starts the timeline in romfs:/timelines/<name> and switches to
 // GAME_TIMELINE. Returns true if it started; otherwise goes back to the title
-// screen and returns false.
+// screen and returns false. When it ends, END goes back to the title screen
+// and RETURN to GAME_NORMAL in the current room.
 bool game_timeline_start(const char *name);
 
 // Releases everything the game holds: the active mini-game, the room, the

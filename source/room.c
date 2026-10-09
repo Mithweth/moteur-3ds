@@ -211,7 +211,7 @@ static bool load_room(const char *filename) {
 
             // An unknown image name only prints a warning and leaves an empty
             // image (tex == NULL) in the room, so check the log when adding one.
-            image->image = gfxmap_get_image(room->assets, image_name);
+            image->image = gfxmap_get_image(&room->assets, image_name);
             image->x = atof(x);
             image->y = atof(y);
             image->z = atof(z);
@@ -458,7 +458,7 @@ static bool load_room(const char *filename) {
                 return false;
             }
 
-            hotspot->message_image = gfxmap_get_image(room->assets, image);
+            hotspot->message_image = gfxmap_get_image(&room->assets, image);
             if (!hotspot->message_image.tex) {
                 printf("%s:%zu: unknown image %s\n", filename, line_number, image);
                 fclose(f);
@@ -480,7 +480,7 @@ static bool load_room(const char *filename) {
             }
 
             if (action.type == ROOM_ACTION_MESSAGE_IMAGE) {
-                action.image = gfxmap_get_image(room->assets, action.argument);
+                action.image = gfxmap_get_image(&room->assets, action.argument);
                 if (!action.image.tex) {
                     printf("%s:%zu: unknown image %s\n", filename, line_number, action.argument);
                     action_remove(&action);
@@ -914,9 +914,7 @@ void room_close(void) {
         }
     }
     free(room->path);
-    if (room->assets) {
-        C2D_SpriteSheetFree(room->assets);
-    }
+    gfxmap_free_assets(&room->assets);
     free(room);
     room = NULL;
 }

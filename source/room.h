@@ -10,6 +10,7 @@
 #include <citro2d.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "gfxmap.h"
 
 // Fixed capacities of the room data structures. Exceeding any of them is
 // reported as a load error with the offending file and line.
@@ -51,8 +52,8 @@ typedef enum {
 typedef struct {
     RoomActionType type;
     char *argument;  // single argument of the directive (owned, strdup'd)
-    C2D_Image image; // MESSAGE_IMAGE only: resolved while parsing, because
-                     // the gfxmap table is replaced by later loads
+    C2D_Image image; // MESSAGE_IMAGE only: resolved while parsing from the
+                     // room's spritesheet
 } RoomAction;
 
 // ACTION block of a hotspot or path: its actions run when all its
@@ -115,7 +116,7 @@ typedef struct {
 // freed by room_close().
 typedef struct {
     char *path;      // romfs:/rooms/<name>, base directory for SFX files
-    C2D_SpriteSheet assets;
+    GfxAssets assets;
     RoomImage images[ROOM_MAX_IMAGES];
     size_t image_count;
     Hotspot hotspots[ROOM_MAX_HOTSPOTS];

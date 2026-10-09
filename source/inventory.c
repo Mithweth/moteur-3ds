@@ -1,9 +1,8 @@
 // inventory.c
 // Implementation notes: items[] is the catalogue parsed from the inventory
 // file; inventory[] holds pointers into it for the items the player carries,
-// in pickup order. Images are resolved while parsing because gfxmap keeps a
-// single global index table, overwritten by the next gfxmap_load (room,
-// timeline, mini-game...).
+// in pickup order. Images are resolved while parsing from the inventory
+// spritesheet, which stays loaded until inventory_close().
 #include <citro2d.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -25,7 +24,7 @@ static size_t selected = 0;
 static Item *inventory[ITEM_MAX];
 static size_t inventory_count = 0;
 
-static C2D_SpriteSheet assets;
+static GfxAssets assets;
 static InventoryMode inventory_mode = INVENTORY_NORMAL;
 static size_t columns = 6;
 
@@ -91,7 +90,7 @@ static bool load_inventory(const char *filename) {
                     item_count = 0;
                     return false;
                 }
-                item->image = gfxmap_get_image(assets, image_id);
+                item->image = gfxmap_get_image(&assets, image_id);
                 if (!item->image.tex) {
                     printf("%s:%zu: unknown image: %s\n", filename, line_number, image_id);
                     fclose(f);
@@ -168,7 +167,7 @@ static bool load_inventory(const char *filename) {
                 if ((fmt) && (strcmp(fmt, "FULLSCREEN") == 0)) {
                     item->detail_fullscreen = true;
                 }
-                item->detail_image = gfxmap_get_image(assets, image_id);
+                item->detail_image = gfxmap_get_image(&assets, image_id);
 
                 if (!item->detail_image.tex) {
                     printf("%s:%zu: unknown image: %s\n", filename, line_number, image_id);
@@ -411,14 +410,12 @@ void inventory_remove(const char *id) {
 bool inventory_init(void) {
     if (!gfxmap_load_assets("romfs:/inventory", &assets)) {
         printf("Cannot load inventory\n");
-        assets = NULL;
         return false;
     }
 
     if (!load_inventory("romfs:/inventory/inventory")) {
         printf("Cannot load inventory\n");
-        C2D_SpriteSheetFree(assets);
-        assets = NULL;
+        gfxmap_free_assets(&assets);
         return false;
     }
 
@@ -437,10 +434,7 @@ void inventory_close(void) {
     }
 // Resetting item_count makes a second call harmless.
     item_count = 0;
-    if (assets) {
-        C2D_SpriteSheetFree(assets);
-        assets = NULL;
-    }
+    gfxmap_free_assets(&assets);
     inventory_count = 0;
     selected = 0;
 }

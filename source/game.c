@@ -69,6 +69,7 @@ static int game_busy_sfx_channel = -1;
 static bool start_menu;
 static size_t start_selected;
 static char current_room_name[64];
+static GameMode timeline_return_mode;
 
 
 // Parses value as "R G B A" into color. Returns false if value is NULL or
@@ -369,8 +370,33 @@ bool game_title_start(void) {
 	return true;
 }
 
+// A timeline ending with RETURN, started from the game: back to the room,
+// which stayed loaded meanwhile; timeline_close stops the timeline's music, so
+// the game music restarts from the beginning. END, or RETURN from the title
+// screen (no game to go back to): title screen.
+static void game_timeline_stop(void) {
+	if (timeline_exit() != TIMELINE_EXIT_RETURN || timeline_return_mode == GAME_TITLE) {
+		game_title_start();
+		return;
+	}
+	timeline_close();
+	if (game_config.music) {
+		music_play(game_config.music);
+	}
+	game_mode = GAME_NORMAL;
+}
+
 bool game_timeline_start(const char *name) {
 	char path[256];
+	// The timeline takes over the screen: close the mini-game now, without
+	// restarting the game music as game_minigame_stop would. A pending
+	// WAIT_SFX callback is dropped too, since RETURN goes to GAME_NORMAL.
+	if (active_minigame && active_minigame->close) {
+		active_minigame->close();
+	}
+	active_minigame = NULL;
+	game_busy_callback = NULL;
+	timeline_return_mode = (game_mode == GAME_TITLE) ? GAME_TITLE : GAME_NORMAL;
 	snprintf(path, sizeof(path), "romfs:/timelines/%s", name);
 	if (timeline_init(path)) {
 		game_mode = GAME_TIMELINE;
@@ -731,7 +757,9 @@ bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
 			return true;
 
 		case GAME_TIMELINE:
-			timeline_update(keys);
+			if (!timeline_update(keys)) {
+				game_timeline_stop();
+			}
 			return true;
 
 		case GAME_MINIGAME:
