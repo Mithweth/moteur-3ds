@@ -288,7 +288,7 @@ static bool load_timeline(const char *filename) {
 				image_type = TIMELINE_IMAGE_LEFT;
 			} else if (strcmp(command, "IMAGE_CENTER") == 0) {
 				image_type = TIMELINE_IMAGE_CENTER;
-			} else if (strcmp(command, "IMAGE_RIGHT") == 0) {
+			} else {
 				image_type = TIMELINE_IMAGE_RIGHT;
 			}
 			char *image_name = strtok(NULL, " ");
