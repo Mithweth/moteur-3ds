@@ -1,5 +1,27 @@
+# Game configuration, applied when "New game" starts.
+# Separators: spaces only, no tabs. Colors: <R> <G> <B> <A>, 0-255,
+# no color names. "#" at line start = comment.
+#
+# ROOM <room>               required, starting room (dir in rooms/)
+# MUSIC <name>              optional game music: .ogg name in game/,
+#                           or a full romfs:/ path with its extension
+# ITEM <id>                 optional, starting item (max 16, one per line)
+# SAVE sdmc:/<file>         optional, enables saving and CONTINUE
+# CANNOT_USE_MESSAGE <key>  optional, shown when an item has no use there
+# TEXT_COLOR <rgba>         message box and Start menu text (default white)
+# TEXT_SIZE <scale>         Start menu buttons (default 0.6)
+# BUTTON_COLOR <rgba>       behind the selected Start menu button
+#
+# FRAME_COLORS ... END_FRAME_COLORS   required, frame layers (out -> in);
+#                                     a missing layer is not drawn
+#   SHADOW <rgba>           drop shadow
+#   OUTER_BORDER <rgba>     2 px border
+#   OUTER_BACKGROUND <rgba> 3 px between the borders
+#   INNER_BORDER <rgba>     1 px border
+#   INNER_BACKGROUND <rgba> behind the text
+
 ROOM sample1
-SAVE sdmc:/moteur.save
+#SAVE sdmc:/moteur.save
 TEXT_COLOR 255 255 255 255
 TEXT_SIZE 0.6
 BUTTON_COLOR 105 82 40 255

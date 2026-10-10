@@ -1,9 +1,55 @@
+# Title screen. Images: PNG names in game/, no extension. Sounds: names
+# in game/ without extension, or a full romfs:/ path.
+# Colors: RED BLUE GREEN YELLOW BLACK WHITE GRAY LIGHTGRAY.
+# "#" at line start = comment.
+#
+# Outside blocks, all optional:
+# BACKGROUND_TOP <image>        top screen (400x240), at (0, 0)
+# BACKGROUND_BOTTOM <image>     behind the menu (320x240), at (0, 0)
+# MUSIC <name>                  .ogg played in a loop
+# SFX_SELECT <name>             .raw played when the selection moves
+# SFX_CHOICE <name>             .raw played when an entry is chosen
+#
+# MENU ... END_MENU             required
+#   ORDER <entry>,<entry>,...   required, no spaces; entries:
+#                               LANG (hidden with a single language),
+#                               INTRO, CONTINUE (hidden without a save),
+#                               GAME, CONTROLS, CREDITS
+#   DEFAULT <entry>             highlighted at start (default: first)
+#   INTRO <timeline>            timeline of INTRO; without it, INTRO is hidden
+#   POSITION <x> <y>            x = center, y = first entry (default 160 70)
+#   SPACING <px>                between entries (default 30)
+#   TEXT_SIZE <scale>           default 0.65
+#   COLOR / SELECTED_COLOR <color>   default GRAY / LIGHTGRAY
+#
+# CONTROLS ... END_CONTROLS     optional, page of the CONTROLS entry
+#   BACKGROUND <image>
+#   IMAGE <image> <x> <y>       max 8
+#   TEXT <key> <x> <y> <size> [LEFT|CENTER|RIGHT]   max 8
+#
+# CREDITS ... END_CREDITS       optional, page of the CREDITS entry
+#   BACKGROUND <image>
+#   CREDIT <role_key> <name>    max 11; name = rest of the line, untranslated
+#   IMAGE <image> <x> <y>       max 8
+
+BACKGROUND_TOP sample_top
+BACKGROUND_BOTTOM sample_bottom
+MUSIC title
+SFX_SELECT title_select
+SFX_CHOICE title_choice
+
 MENU
-    POSITION 160 50
-    SPACING 25
-    TEXT_SIZE 0.65
+    POSITION 160 100
+    SPACING 50
+    TEXT_SIZE 0.8
     COLOR GRAY
     SELECTED_COLOR LIGHTGRAY
-    ORDER LANG,CONTINUE,GAME
+    ORDER LANG,CONTINUE,INTRO,GAME,CREDITS
     DEFAULT GAME
 END_MENU
+
+CREDITS
+    BACKGROUND sample_bottom
+    CREDIT TITLE_CREDITS_ORIGINAL_PROGRAM Jean-Baptiste Langlois
+    CREDIT TITLE_CREDITS_DRIVEN_BY M.O.T.E.U.R.
+END_CREDITS

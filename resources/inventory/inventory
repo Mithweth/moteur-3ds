@@ -1,0 +1,27 @@
+# Item catalogue. Images: PNG names in inventory/, no extension.
+# "#" at line start = comment.
+#
+# ITEM <id> <name_key>          <id> used by rooms, <name_key> shown in the HUD
+#   IMAGE <image>               required, inventory icon
+#   EXAMINE <key>               optional, text shown when examining (X)
+#   DETAIL <image> <x> <y> [FULLSCREEN]
+#                               optional, image shown when examining;
+#                               FULLSCREEN blacks out the screen behind it
+#   EXAMINE_CALLBACK <name>     optional, C drawing while examining
+#   USE_CALLBACK <name>         optional, C code run on use (A) when no
+#                               USE block of the target matches
+# END_ITEM
+#
+# An item without EXAMINE, DETAIL or EXAMINE_CALLBACK can't be examined.
+# Callbacks are registered in extensions/callbacks.c.
+
+ITEM GPU ITEM_GPU
+IMAGE graphic_card
+EXAMINE ITEM_GPU_EXAMINE
+EXAMINE_CALLBACK sample_examine
+USE_CALLBACK sample_use
+END_ITEM
+
+ITEM EMPTY_BEER ITEM_EMPTY_BEER
+IMAGE beer
+END_ITEM
