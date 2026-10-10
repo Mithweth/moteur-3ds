@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+# Images
+# ---------------------------------------------------------------------------
+
+IMAGE background 0 0 0
+WHEN STATE_IS raytracing_enabled false
+END_IMAGE
+
+IMAGE background_rt 0 0 0
+WHEN STATE_IS raytracing_enabled true
+END_IMAGE
+
+IMAGE beer_rt 180 129 0.1
+WHEN STATE_IS raytracing_enabled true
+END_IMAGE
+
+IMAGE empty_beer 99 211 0.1
+	WHEN STATE_IS raytracing_enabled false
+	WHEN INVENTORY_HAS EMPTY_BEER false
+END_IMAGE
+
+#IMAGE beer 173 129 0.1
+#	WHEN INVENTORY_HAS BEER false
+#END_IMAGE
+
+IMAGE computer_off 105 87 0.1
+	WHEN STATE_IS raytracing_enabled false
+	WHEN STATE_IS computer_turned_off true
+END_IMAGE
+
+IMAGE graphic_card 29 119 0.2
+	WHEN STATE_IS raytracing_enabled false
+	WHEN INVENTORY_HAS GPU false
+	WHEN STATE_IS gpu_taken false
+END_IMAGE
+
+# ---------------------------------------------------------------------------
+# Hotspots
+# ---------------------------------------------------------------------------
+
+HOTSPOT BEER 99 211 26 19
+	WHEN INVENTORY_HAS EMPTY_BEER false
+	ACTION
+		INVENTORY_ADD EMPTY_BEER
+		MESSAGE DO_CLEANING
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT BEER 171 132 15 22
+	WHEN STATE_IS raytracing_enabled true
+	ACTION
+		WHEN STATE_IS time_for_a_beer true
+		TIMELINE ending
+	END_ACTION
+	ACTION
+		SET time_for_a_beer
+		MESSAGE ITEM_BEER_MESSAGE_OK
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT BEER 171 132 15 22
+	WHEN STATE_IS raytracing_enabled false
+	MESSAGE ITEM_BEER_MESSAGE_PIXEL
+END_HOTSPOT
+
+HOTSPOT GPU 29 119 104 42
+	WHEN INVENTORY_HAS GPU false
+	ACTION
+		INVENTORY_ADD GPU
+		SET gpu_taken
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT COMPUTER_SCREEN 100 82 48 53
+END_HOTSPOT
+
+HOTSPOT POSTER 95 17 46 61
+END_HOTSPOT
+
+HOTSPOT INFERNAL_HOUSE 6 22 53 119
+END_HOTSPOT
+
+HOTSPOT COMPUTER 161 116 15 19
+	WHEN STATE_IS computer_turned_off true
+	ACTION
+		SET computer_turned_off
+		MESSAGE COMPUTER_ON
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT COMPUTER 161 116 15 19
+	WHEN STATE_IS computer_turned_off false
+	ACTION
+		SET computer_turned_off
+	END_ACTION
+END_HOTSPOT
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+
+PATH EAST
+	ACTION
+		ROOM sample2
+	END_ACTION
+END_PATH
