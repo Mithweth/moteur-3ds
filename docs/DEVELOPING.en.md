@@ -63,14 +63,15 @@ the key to understanding who receives the input at any given moment:
 | `GAME_TITLE`    | the title screen                                     | new game, load                             |
 | `GAME_TIMELINE` | the running timeline                                 | `END` (title screen) or `RETURN` (the game) |
 | `GAME_NORMAL`   | the room (movement, touch) and the inventory         | an action changes the mode                 |
-| `GAME_MESSAGE`  | nobody: A, B or touch closes the message             | A, B, touch, START                         |
-| `GAME_BUSY`     | nobody, for the duration of a `WAIT_SFX`             | end of the sound, then optional callback   |
+| `GAME_MESSAGE`  | nobody: A, B or touch closes the message             | A, B, touch, then optional callback        |
+| `GAME_WAIT_SFX` | nobody, for the duration of a `WAIT_SFX`             | end of the sound, then optional callback   |
 | `GAME_MINIGAME` | the active mini-game (`update`)                      | `game_minigame_stop()`                     |
 
 The START menu sits on top of all this and takes all the input while it
-is open. Saving is only offered in `GAME_NORMAL`: **you never save in
-the middle of a mini-game**, which has consequences for their design
-(section 5.4).
+is open; a message stays displayed under it. Saving is only offered in
+`GAME_NORMAL`: **you never save in the middle of a mini-game**, nor in
+the middle of a room action block suspended by a message, a sound or a
+timeline, which has consequences for their design (section 5.4).
 
 ## 2. From `resources/` to the romfs
 
@@ -517,9 +518,9 @@ changes the mode (message, timeline, room change) must therefore come
 
 ```c
 static void simon_stop(bool success) {
-    game_minigame_stop();                       // close(), GAME_NORMAL
+    game_minigame_stop();                             // close(), GAME_NORMAL
     if (success) {
-        game_show_message("CELLAR_SIMON_WIN");  // GAME_MESSAGE
+        game_show_message("CELLAR_SIMON_WIN", NULL);  // GAME_MESSAGE
     }
 }
 ```
@@ -534,7 +535,7 @@ The consequences of a win usually take the form of:
 
 -   `gamestate_set("...")`: the room reacts through its `WHEN STATE_IS`
     (this is what `piano` does for the secret passage);
--   `game_show_message("...")`: feedback to the player;
+-   `game_show_message("...", NULL)`: feedback to the player;
 -   `game_timeline_start("...", NULL)`: an ending or a game over (`digicode`).
     The mini-game is closed first, so `update` must return right away, as
     after `game_minigame_stop()`; a timeline ending with `RETURN` brings
@@ -636,7 +637,7 @@ static void switchboard_stop(bool success) {
     game_minigame_stop();
     if (success) {
         gamestate_set("cellar_power_restored");
-        game_show_message("CELLAR_SWITCHBOARD_SOLVED");
+        game_show_message("CELLAR_SWITCHBOARD_SOLVED", NULL);
     }
 }
 
@@ -840,7 +841,7 @@ with the public API:
 void syringe_use(void) {
     inventory_remove("SYRINGE");
     gamestate_set("item_syringe_injected");
-    game_show_message("ITEM_SYRINGE_USED");
+    game_show_message("ITEM_SYRINGE_USED", NULL);
 }
 ```
 
@@ -918,11 +919,11 @@ void lighter_reset(void) {
 // Only called when no USE LIGHTER block of the target matched.
 void lighter_use(void) {
     if (uses_left == 0) {
-        game_show_message("ITEM_LIGHTER_EMPTY");
+        game_show_message("ITEM_LIGHTER_EMPTY", NULL);
         return;
     }
     uses_left--;
-    game_show_message("ITEM_LIGHTER_FLAME");
+    game_show_message("ITEM_LIGHTER_FLAME", NULL);
 }
 
 char *lighter_serialize(void) {
@@ -995,8 +996,8 @@ else (`room.h`, `hud.h`, `title.h`...) is internal.
 
 | Function                                   | Effect                                                                      |
 |--------------------------------------------|-----------------------------------------------------------------------------|
-| `game_show_message(key)`                   | shows a translated message, switches to `GAME_MESSAGE`                      |
-| `game_show_image(image)`                   | shows a centered image; it must stay valid until it is dismissed            |
+| `game_show_message(key, callback)`         | shows a translated message, switches to `GAME_MESSAGE`; once it is dismissed, goes back to `GAME_NORMAL` and calls `callback` (may be `NULL`) |
+| `game_show_image(image, callback)`         | shows a centered image, which must stay valid until it is dismissed; `callback` as for `game_show_message` |
 | `game_minigame_start(name)`                | starts another mini-game                                                    |
 | `game_minigame_stop()`                     | ends the current mini-game (section 5.3)                                    |
 | `game_timeline_start(name, callback)`      | starts `romfs:/timelines/<name>`; on failure, goes back to the title screen. Closes the active mini-game, if any. At the end, `END` goes back to the title screen; `RETURN` goes back to the room, then calls `callback` (may be `NULL`), which is never called after `END` or a failure |
@@ -1008,7 +1009,8 @@ else (`room.h`, `hud.h`, `title.h`...) is internal.
 
 A single rule: **the last mode change of the frame wins**. A
 `game_show_message` followed by a `game_timeline_start` will never show
-the message.
+the message, and its callback is never called. To chain them, start the
+timeline from the message's callback.
 
 ### `gamestate.h` — states
 

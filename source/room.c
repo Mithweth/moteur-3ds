@@ -19,10 +19,10 @@
 // The currently loaded room, or NULL.
 static Room *room = NULL;
 
-// Remaining actions of a block interrupted by WAIT_SFX or TIMELINE. game.c
-// calls continue_actions() once the sound is over, or once the timeline ends
-// with RETURN, to resume at `next`. The pointer refers to arrays inside the
-// room, so room_close() clears it.
+// Remaining actions of a block suspended by MESSAGE, MESSAGE_IMAGE, WAIT_SFX
+// or TIMELINE. game.c calls continue_actions() once the message is dismissed,
+// the sound is over, or the timeline ends with RETURN, to resume at `next`.
+// The pointer refers to arrays inside the room, so room_close() clears it.
 typedef struct {
 	RoomAction *actions;
 	size_t count;
@@ -32,6 +32,13 @@ typedef struct {
 static PendingActions pending_actions;
 
 static void continue_actions(void);
+
+// Remembers where execute_actions resumes once game.c calls continue_actions().
+static void pending_actions_set(RoomAction *actions, size_t count, size_t next) {
+	pending_actions.actions = actions;
+	pending_actions.count = count;
+	pending_actions.next = next;
+}
 
 // Build a condition from a WHEN directive. On an unknown type, returns a
 // condition with a NULL name, which the parser treats as a load error.
@@ -393,9 +400,7 @@ static bool load_room(const char *filename) {
 					return false;
 				}
 
-				image->conditions[
-					image->condition_count++
-				] = condition;
+				image->conditions[image->condition_count++] = condition;
 
 			} else if (hotspot) {
 				if (hotspot->condition_count >= ROOM_MAX_CONDITIONS) {
@@ -492,8 +497,7 @@ static bool load_room(const char *filename) {
 
 			// Checked here rather than when the action runs, so a typo fails
 			// the room load instead of making the hotspot silently do nothing.
-			if (action.type == ROOM_ACTION_MINIGAME &&
-				!callbacks_minigame_find(action.argument)) {
+			if (action.type == ROOM_ACTION_MINIGAME && !callbacks_minigame_find(action.argument)) {
 				printf("%s:%zu: unknown mini-game %s\n", filename, line_number, action.argument);
 				action_remove(&action);
 				fclose(f);
@@ -534,9 +538,10 @@ static bool load_room(const char *filename) {
 }
 
 // Run actions[start..count). Returns true when the action flow ended early:
-// a mode-changing action (ROOM, MINIGAME), or a WAIT_SFX or TIMELINE that will
-// resume later through continue_actions(). Callers must then stop running
-// further blocks, since the game mode (and possibly the room) has changed.
+// a mode-changing action (ROOM, MINIGAME), or a MESSAGE, MESSAGE_IMAGE,
+// WAIT_SFX or TIMELINE that will resume later through continue_actions().
+// Callers must then stop running further blocks, since the game mode (and
+// possibly the room) has changed.
 static bool execute_actions(RoomAction *actions, size_t count, size_t start) {
 	char *path;
 	for (size_t c = start; c < count; c++) {
@@ -552,11 +557,13 @@ static bool execute_actions(RoomAction *actions, size_t count, size_t start) {
 			inventory_remove(action->argument);
 			break;
 		case ROOM_ACTION_MESSAGE:
-			game_show_message(action->argument);
-			break;
+			pending_actions_set(actions, count, c + 1);
+			game_show_message(action->argument, continue_actions);
+			return true;
 		case ROOM_ACTION_MESSAGE_IMAGE:
-			game_show_image(action->image);
-			break;
+			pending_actions_set(actions, count, c + 1);
+			game_show_image(action->image, continue_actions);
+			return true;
 		case ROOM_ACTION_SFX:
 			path = audio_resolve_path(room->path, action->argument, ".raw");
 			if (path) {
@@ -568,9 +575,7 @@ static bool execute_actions(RoomAction *actions, size_t count, size_t start) {
 			// sfx_play() loads the whole sample, so the path can be freed as
 			// soon as game_wait_for_sfx() returns.
 			path = audio_resolve_path(room->path, action->argument, ".raw");
-			pending_actions.actions = actions;
-			pending_actions.count = count;
-			pending_actions.next = c + 1;
+			pending_actions_set(actions, count, c + 1);
 			// Save where to resume before handing control to game.c; if the
 			// sound can't be played, forget it and keep going immediately.
 			if (path && game_wait_for_sfx(path, continue_actions)) {
@@ -578,18 +583,14 @@ static bool execute_actions(RoomAction *actions, size_t count, size_t start) {
 				return true;
 			}
 			free(path);
-			pending_actions.actions = NULL;
-			pending_actions.count = 0;
-			pending_actions.next = 0;
+			pending_actions_set(NULL, 0, 0);
 			break;
 		case ROOM_ACTION_ROOM:
 			// Frees the current room: `actions` must not be touched after this.
 			game_set_room(action->argument);
 			return true;
 		case ROOM_ACTION_TIMELINE:
-			pending_actions.actions = actions;
-			pending_actions.count = count;
-			pending_actions.next = c + 1;
+			pending_actions_set(actions, count, c + 1);
 			// On failure, game_timeline_start goes back to the title screen,
 			// whose room_close clears pending_actions: return either way.
 			game_timeline_start(action->argument, continue_actions);
@@ -638,16 +639,14 @@ static void execute_action_blocks(RoomActionBlock *action_blocks, size_t count) 
 	}
 }
 
-// Callback passed to game_wait_for_sfx() and game_timeline_start(): resumes
-// the interrupted block. Only the rest of that block runs; following ACTION
+// Callback passed to game_show_message(), game_show_image(),
+// game_wait_for_sfx() and game_timeline_start(): resumes the suspended block. Only the rest of that block runs; following ACTION
 // blocks are not resumed.
 static void continue_actions(void) {
 	RoomAction *actions = pending_actions.actions;
 	size_t count = pending_actions.count;
 	size_t next = pending_actions.next;
-	pending_actions.actions = NULL;
-	pending_actions.count = 0;
-	pending_actions.next = 0;
+	pending_actions_set(NULL, 0, 0);
 	if (room && actions) {
 		execute_actions(actions, count, next);
 	}
@@ -861,10 +860,8 @@ void room_close(void) {
 		return;
 	}
 
-	// The pending WAIT_SFX continuation points into this room's memory.
-	pending_actions.actions = NULL;
-	pending_actions.count = 0;
-	pending_actions.next = 0;
+	// A suspended block points into this room's memory.
+	pending_actions_set(NULL, 0, 0);
 	for (size_t i = 0; i < room->image_count; i++) {
 		RoomImage *image = &room->images[i];
 		for (size_t j = 0; j < image->condition_count; j++) {

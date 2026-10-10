@@ -36,7 +36,7 @@ typedef struct {
 typedef enum {
 	GAME_NORMAL,    // exploring a room: movement, touch and inventory input
 	GAME_MESSAGE,   // a message or examine image is shown; A, B or touch dismisses it
-	GAME_BUSY,      // input blocked until a sound effect ends (see game_wait_for_sfx)
+	GAME_WAIT_SFX,  // input blocked until a sound effect ends (see game_wait_for_sfx)
 	GAME_MINIGAME,  // a MiniGame receives the input
 	GAME_TITLE,     // title screen
 	GAME_TIMELINE   // a scripted sequence (intro, game over, ending) is playing
@@ -45,7 +45,8 @@ typedef enum {
 // Per-frame update, called by main. keys are the keys pressed this frame
 // (hidKeysDown); dispatches on the current GameMode. START opens the start
 // menu (Back, Save, Quit), which takes all the input until it is closed; Save
-// is only offered in GAME_NORMAL, and START dismisses a pending message first.
+// is only offered in GAME_NORMAL. A message stays shown under the menu and is
+// dismissed as usual once the menu is closed.
 // Returns false when the player chose Quit: main must then leave its loop.
 bool game_update(u32 keys, circlePosition analog, touchPosition touch);
 
@@ -58,7 +59,8 @@ void game_draw(C3D_RenderTarget *top, C3D_RenderTarget *bottom);
 // screen and returns false. When it ends, END goes back to the title screen
 // and RETURN to GAME_NORMAL in the current room, then calls callback (may be
 // NULL). callback is never called after END, after a RETURN from the title
-// screen, or when the timeline fails to load.
+// screen, or when the timeline fails to load. Drops the callback of a message
+// or WAIT_SFX that the timeline replaces.
 bool game_timeline_start(const char *name, void (*callback)(void));
 
 // Releases everything the game holds: the active mini-game, the room, the
@@ -119,13 +121,16 @@ bool game_use_item(const char *id);
 void game_cannot_use_item(void);
 
 // Shows the translated message for message_id and switches to GAME_MESSAGE.
-// A later mode-changing action in the same frame (room change, timeline,
-// mini-game, WAIT_SFX) replaces the message before it is ever displayed.
-void game_show_message(const char *message_id);
+// Once A, B or touch dismisses it, back to GAME_NORMAL, then calls callback
+// (may be NULL). A later mode change in the same frame (room change,
+// timeline, mini-game, WAIT_SFX) replaces the message before it is ever
+// displayed, and callback is never called.
+void game_show_message(const char *message_id, void (*callback)(void));
 
 // Shows an image centered over the room and switches to GAME_MESSAGE.
-// The image must stay valid until the message is dismissed.
-void game_show_image(C2D_Image image);
+// The image must stay valid until the message is dismissed. callback works as
+// in game_show_message.
+void game_show_image(C2D_Image image, void (*callback)(void));
 
 // Starts the mini-game registered under name (see callbacks.c), stops the
 // music and switches to GAME_MINIGAME. Does nothing if the name is unknown or
@@ -136,7 +141,7 @@ void game_minigame_start(const char *name);
 // back to GAME_NORMAL. Usually called by the mini-game itself.
 void game_minigame_stop(void);
 
-// Plays sfx (a full romfs path) and blocks input in GAME_BUSY until it ends,
-// then calls callback (may be NULL). Returns false without changing mode if
+// Plays sfx (a full romfs path) and blocks input in GAME_WAIT_SFX until it
+// ends, then goes back to GAME_NORMAL and calls callback (may be NULL). Returns false without changing mode if
 // the sound could not be started; the caller must then continue on its own.
 bool game_wait_for_sfx(const char *sfx, void (*callback)(void));

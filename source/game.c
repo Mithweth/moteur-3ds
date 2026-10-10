@@ -63,12 +63,12 @@ static const char *message_text = NULL;
 static C2D_Image examine_image;
 static C2D_TextBuf text_buf;
 static C2D_Text text;
-// Called once the GAME_BUSY sound effect has finished playing.
-static void (*game_busy_callback)(void) = NULL;
-// Called when a timeline ends with RETURN and the game is back in GAME_NORMAL.
-static void (*game_timeline_callback)(void) = NULL;
+// Called by game_resume when GAME_WAIT_SFX, GAME_MESSAGE or GAME_TIMELINE
+// (ended with RETURN) gives way to GAME_NORMAL. Entering any of these modes
+// overwrites it, so a mode replaced before its end drops its callback.
+static void (*game_resume_callback)(void) = NULL;
 static MiniGame *active_minigame = NULL;
-static int game_busy_sfx_channel = -1;
+static int wait_sfx_channel = -1;
 static bool start_menu;
 static size_t start_selected;
 static char current_room_name[64];
@@ -337,8 +337,7 @@ static void game_close_modes(void) {
 	active_hotspot = NULL;
 	target = NULL;
 	message_text = NULL;
-	game_busy_callback = NULL;
-	game_timeline_callback = NULL;
+	game_resume_callback = NULL;
 	title_close();
 	timeline_close();
 	music_stop();
@@ -391,11 +390,23 @@ bool game_title_start(void) {
 	return true;
 }
 
+// Back to GAME_NORMAL, then runs game_resume_callback. It is cleared before
+// it runs, since it may enter another waiting mode (e.g. the next action of a
+// room block).
+static void game_resume(void) {
+	void (*callback)(void) = game_resume_callback;
+	game_resume_callback = NULL;
+	game_mode = GAME_NORMAL;
+	if (callback) {
+		callback();
+	}
+}
+
 // A timeline ending with RETURN, started from the game: back to the room,
 // which stayed loaded meanwhile; timeline_close stops the timeline's music, so
-// the game music restarts from the beginning. The callback is cleared before
-// it runs, so it may start another timeline. END, or RETURN from the title
-// screen (no game to go back to): title screen, and the callback is dropped.
+// the game music restarts from the beginning, then game_resume runs the
+// callback. END, or RETURN from the title screen (no game to go back to):
+// title screen, and the callback is dropped.
 static void game_timeline_stop(void) {
 	if (timeline_exit() != TIMELINE_EXIT_RETURN || timeline_return_mode == GAME_TITLE) {
 		game_title_start();
@@ -405,31 +416,26 @@ static void game_timeline_stop(void) {
 	if (game_config.music) {
 		music_play(game_config.music);
 	}
-	game_mode = GAME_NORMAL;
-	if (game_timeline_callback) {
-		void (*callback)(void) = game_timeline_callback;
-		game_timeline_callback = NULL;
-		callback();
-	}
+	game_resume();
 }
 
 bool game_timeline_start(const char *name, void (*callback)(void)) {
 	char path[256];
 	// The timeline takes over the screen: close the mini-game now, without
-	// restarting the game music as game_minigame_stop would. A pending
-	// WAIT_SFX callback is dropped too, since RETURN goes to GAME_NORMAL.
+	// restarting the game music as game_minigame_stop would. The callback of
+	// a message or WAIT_SFX replaced by the timeline is dropped when
+	// game_resume_callback is overwritten below.
 	if (active_minigame && active_minigame->close) {
 		active_minigame->close();
 	}
 	active_minigame = NULL;
-	game_busy_callback = NULL;
 	timeline_return_mode = (game_mode == GAME_TITLE) ? GAME_TITLE : GAME_NORMAL;
 	snprintf(path, sizeof(path), "romfs:/timelines/%s", name);
 	if (!timeline_init(path)) {
 		game_title_start();
 		return false;
 	}
-	game_timeline_callback = callback;
+	game_resume_callback = callback;
 	game_mode = GAME_TIMELINE;
 	return true;
 }
@@ -478,11 +484,11 @@ static void game_reset(void) {
 void game_load(void) {
 	game_reset();
 	if (save_read()) {
-		game_show_message("SAVE_LOADING_SUCCESS");
+		game_show_message("SAVE_LOADING_SUCCESS", NULL);
 	} else if (game_start()) {
 		// When game_start fails, it is back on the title screen: a message
 		// would switch to GAME_MESSAGE on top of it.
-		game_show_message("SAVE_LOADING_ERROR");
+		game_show_message("SAVE_LOADING_ERROR", NULL);
 	}
 }
 
@@ -500,12 +506,12 @@ bool game_start(void) {
 }
 
 bool game_wait_for_sfx(const char *sfx, void (*callback)(void)) {
-	game_busy_sfx_channel = sfx_play(sfx);
-	if (game_busy_sfx_channel < 0) {
+	wait_sfx_channel = sfx_play(sfx);
+	if (wait_sfx_channel < 0) {
 		return false;
 	}
-	game_busy_callback = callback;
-	game_mode = GAME_BUSY;
+	game_resume_callback = callback;
+	game_mode = GAME_WAIT_SFX;
 	return true;
 }
 
@@ -590,12 +596,12 @@ static void update_touch(touchPosition touch) {
 		target = hotspot;
 
 		if (hotspot->message_id) {
-			game_show_message(hotspot->message_id);
+			game_show_message(hotspot->message_id, NULL);
 			return;
 		}
 
 		if (hotspot->message_image.tex) {
-			game_show_image(hotspot->message_image);
+			game_show_image(hotspot->message_image, NULL);
 			return;
 		}
 	}
@@ -684,19 +690,21 @@ void game_cannot_use_item(void) {
 	if (!target || !game_config.cannot_use_message) {
 		return;
 	}
-	game_show_message(game_config.cannot_use_message);
+	game_show_message(game_config.cannot_use_message, NULL);
 }
 
-void game_show_message(const char *message_id) {
+void game_show_message(const char *message_id, void (*callback)(void)) {
 	examine_image = (C2D_Image){0};
 	message_text = lang_get(message_id);
 	printf("Print: %s\n", message_id);
 	game_mode = GAME_MESSAGE;
+	game_resume_callback = callback;
 }
 
-void game_show_image(C2D_Image image) {
+void game_show_image(C2D_Image image, void (*callback)(void)) {
 	examine_image = image;
 	game_mode = GAME_MESSAGE;
+	game_resume_callback = callback;
 }
 
 bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
@@ -754,9 +762,9 @@ bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
 			case 1:
 				start_menu = false;
 				if (!save_write()) {
-					game_show_message("SAVE_SAVING_ERROR");
+					game_show_message("SAVE_SAVING_ERROR", NULL);
 				} else {
-					game_show_message("SAVE_SAVING_SUCCESS");
+					game_show_message("SAVE_SAVING_SUCCESS", NULL);
 				}
 				break;
 			case 2:
@@ -770,10 +778,6 @@ bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
 	if (keys & KEY_START) {
 		start_menu = true;
 		start_selected = 0;
-		if (game_mode == GAME_MESSAGE) {
-			game_mode = GAME_NORMAL;
-			examine_image = (C2D_Image){0};
-		}
 		return true;
 	}
 
@@ -800,22 +804,15 @@ bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
 
 		case GAME_MESSAGE:
 			if (keys & (KEY_A | KEY_B | KEY_TOUCH)) {
-				game_mode = GAME_NORMAL;
 				examine_image = (C2D_Image){0};
+				game_resume();
 			}
 			return true;
 
-		case GAME_BUSY:
-			// The callback is cleared before being called because it may
-			// start a new wait (e.g. the next WAIT_SFX of a room action list).
-			if (!sfx_is_playing(game_busy_sfx_channel)) {
-				game_mode = GAME_NORMAL;
-				if (game_busy_callback) {
-					void (*callback)(void) = game_busy_callback;
-					game_busy_callback = NULL;
-					game_busy_sfx_channel = -1;
-					callback();
-				}
+		case GAME_WAIT_SFX:
+			if (!sfx_is_playing(wait_sfx_channel)) {
+				wait_sfx_channel = -1;
+				game_resume();
 			}
 			return true;
 

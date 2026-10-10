@@ -285,6 +285,12 @@ Ce comportement est différent de celui des blocs `USE` : les blocs
 `ACTION` correspondants ne s'arrêtent pas après la première
 correspondance.
 
+Un bloc suspendu par `MESSAGE`, `MESSAGE_IMAGE`, `WAIT_SFX` ou
+`TIMELINE` arrête en revanche le parcours : seule la suite de ce bloc
+reprend, et les blocs `ACTION` suivants ne sont pas exécutés (voir
+section 10). Dans l'exemple ci-dessus, cela ne change rien, puisque les
+deux blocs de message s'excluent mutuellement.
+
 ## 7. Blocs USE
 
 `USE` décrit l'utilisation d'un objet de l'inventaire sur un hotspot.
@@ -445,11 +451,14 @@ Les actions sont valides dans les blocs `ACTION` et `USE`.
 
   `INVENTORY_REMOVE <item>`           Retire un objet de l'inventaire.
 
-  `MESSAGE <message_id>`              Affiche un message localisé du jeu.
+  `MESSAGE <message_id>`              Affiche un message localisé du jeu
+                                      et suspend l'exécution jusqu'à ce
+                                      que le joueur le ferme.
 
   `MESSAGE_IMAGE <image>`             Affiche une image des ressources de
                                       la pièce, centrée au-dessus de la
-                                      pièce.
+                                      pièce, et suspend l'exécution
+                                      jusqu'à ce que le joueur la ferme.
 
   `SFX <name>`                        Démarre un effet sonore et poursuit
                                       immédiatement l'exécution.
@@ -514,7 +523,7 @@ ouvre un piano fermé si `livingroom_piano_opened` vaut actuellement
 Ne pas interpréter `SET foo` comme l'équivalent de `foo = true` sans
 vérifier la définition de l'état.
 
-## 10. Effets sonores et flux d'actions
+## 10. Effets sonores, messages et flux d'actions
 
 `SFX` démarre un effet sonore et poursuit immédiatement avec l'action
 suivante :
@@ -537,6 +546,26 @@ END_ACTION
 Ne pas compter sur l'exécution de blocs `ACTION` ultérieurs après un
 `WAIT_SFX`. Toute action devant suivre le son doit être placée après
 `WAIT_SFX` dans le même bloc.
+
+### Actions après un message
+
+`MESSAGE` et `MESSAGE_IMAGE` suspendent le bloc de la même façon que
+`WAIT_SFX`, jusqu'à ce que le joueur ferme le message avec A, B ou un
+toucher :
+
+``` text
+ACTION
+    MESSAGE ITEM_BEER_MESSAGE_OK
+    TIMELINE ending
+END_ACTION
+```
+
+La timeline ne démarre qu'une fois le message lu. Plusieurs messages à
+la suite s'affichent l'un après l'autre. Ouvrir le menu START ne ferme
+pas le message : il est toujours affiché à la fermeture du menu, et la
+sauvegarde n'est pas proposée tant qu'il est à l'écran. Comme pour
+`WAIT_SFX`, les blocs `ACTION` suivants ne sont pas exécutés après le
+message.
 
 ### Actions après une timeline
 
@@ -586,11 +615,8 @@ END_ACTION
 ```
 
 Le `MESSAGE` ne sera jamais exécuté car `ROOM` termine le flux
-d'actions.
-
-Ne pas placer `WAIT_SFX`, `ROOM`, `TIMELINE` ou `MINIGAME` après un
-`MESSAGE` dans le même bloc. L'action suivante remplace immédiatement
-l'état du message, qui ne sera donc pas affiché.
+d'actions. L'inverse fonctionne : un `MESSAGE` suivi de `ROOM` affiche
+le message, puis change de pièce une fois qu'il est fermé.
 
 ## 11. Exemple complet
 
@@ -677,8 +703,9 @@ Lorsqu'une pièce est active :
     sinon son `MESSAGE_IMAGE` direct, s'il existe.
 4.  Les actions normales d'un hotspot parcourent tous les blocs `ACTION`
     dans leur ordre de déclaration. Chaque bloc correspondant est
-    exécuté, sauf si le flux d'actions est suspendu par `WAIT_SFX` ou
-    `TIMELINE`, ou terminé par `ROOM` ou `MINIGAME`.
+    exécuté, sauf si le flux d'actions est suspendu par `MESSAGE`,
+    `MESSAGE_IMAGE`, `WAIT_SFX` ou `TIMELINE`, ou terminé par `ROOM` ou
+    `MINIGAME`.
 5.  L'utilisation d'un objet parcourt les blocs `USE` dans leur ordre de
     déclaration et exécute le premier bloc dont l'objet et les
     conditions correspondent.
@@ -727,10 +754,11 @@ complémentaires lorsqu'une seule variante doit être visible.
 Vérifier la définition de l'état. Sur un état `TOGGLE`, `SET` inverse la
 valeur courante : `false` devient `true` et `true` devient `false`.
 
-### Séparer WAIT_SFX et sa suite dans différents blocs ACTION
+### Séparer WAIT_SFX ou MESSAGE et sa suite dans différents blocs ACTION
 
-Les actions devant être exécutées après un `WAIT_SFX` doivent se trouver
-dans le même bloc :
+Les actions devant être exécutées après un `WAIT_SFX`, un `MESSAGE` ou
+un `MESSAGE_IMAGE` doivent se trouver dans le même bloc, car les blocs
+`ACTION` suivants ne sont pas exécutés :
 
 ``` text
 ACTION
