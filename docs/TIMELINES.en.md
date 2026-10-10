@@ -20,7 +20,11 @@ romfs:/timelines/intro/timeline
 ```
 
 Its graphical assets are loaded from the corresponding timeline asset
-set.
+set: the PNG files placed in the timeline directory. They are optional: a
+timeline without any `IMAGE_LEFT`, `IMAGE_CENTER`, `IMAGE_RIGHT` or
+`SPRITE` line (text, pauses and audio only) needs no image. If the
+timeline uses one of these directives without any image available, it
+is rejected at load time with an error naming the offending line.
 
 A simple timeline can look like this:
 

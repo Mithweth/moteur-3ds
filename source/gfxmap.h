@@ -33,6 +33,9 @@ C2D_Image gfxmap_get_image(const GfxAssets *assets, const char *name);
 // On failure returns false and leaves *assets zeroed. The caller owns the
 // result and releases it with gfxmap_free_assets().
 bool gfxmap_load_assets(const char *path, GfxAssets *assets);
+// True once gfxmap_load_assets() has succeeded on *assets and until
+// gfxmap_free_assets(); false for a zeroed (never or no longer loaded) one.
+bool gfxmap_assets_loaded(const GfxAssets *assets);
 // Free the spritesheet and index table of *assets and zero it, so a second
 // call (or a call on a never-loaded GfxAssets) is harmless. Images obtained
 // from it become invalid.

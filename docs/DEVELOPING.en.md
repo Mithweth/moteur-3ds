@@ -1035,8 +1035,9 @@ the next, call `lang_get` again.
 
 ### `gfxmap.h` — images
 
-`gfxmap_load_assets(path, &assets)`, `gfxmap_get_image(&assets, name)`,
-`gfxmap_free_assets(&assets)`, `gfxmap_parse_color(name)`. See
+`gfxmap_load_assets(path, &assets)`, `gfxmap_assets_loaded(&assets)`,
+`gfxmap_get_image(&assets, name)`, `gfxmap_free_assets(&assets)`,
+`gfxmap_parse_color(name)`. See
 section 2 for image lifetime.
 
 ### Between extensions

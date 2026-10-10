@@ -3,8 +3,9 @@
 // Implementation notes: the whole script is parsed up front into events[];
 // timeline_update then runs the current event, so each instant event (music,
 // image, scene change...) takes one frame. Images and sprites are resolved at
-// load time from the timeline's own spritesheet. Script format:
-// docs/TIMELINES.en.md.
+// load time from the timeline's own spritesheet. That spritesheet is
+// optional: without it, the script is accepted only if it has no SPRITE or
+// IMAGE_* line. Script format: docs/TIMELINES.en.md.
 // The timeline never changes the game mode: timeline_update returns false on
 // the final END or RETURN and game.c reads timeline_exit() to pick the title
 // screen or the game. load_timeline only accepts a script that ends with one
@@ -141,6 +142,11 @@ static bool load_timeline(const char *filename) {
 		// Inside FULL_SCREEN ... END_FULL_SCREEN, only SPRITE lines are allowed.
 		if (full_screen) {
 			if (strcmp(command, "SPRITE") == 0) {
+				if (!gfxmap_assets_loaded(&assets)) {
+					printf("%s:%zu: SPRITE requires timeline images\n", filename, line_number);
+					fclose(f);
+					return false;
+				}
 				char *image_name = strtok(NULL, " ");
 				char *x_str      = strtok(NULL, " ");
 				char *y_str      = strtok(NULL, " ");
@@ -272,6 +278,11 @@ static bool load_timeline(const char *filename) {
 		}
 
 		if ((strcmp(command, "IMAGE_LEFT") == 0) || (strcmp(command, "IMAGE_CENTER") == 0) || (strcmp(command, "IMAGE_RIGHT") == 0)) {
+			if (!gfxmap_assets_loaded(&assets)) {
+				printf("%s:%zu: %s requires timeline images\n", filename, line_number, command);
+				fclose(f);
+				return false;
+			}
 			TimelineEventType image_type;
 			if (strcmp(command, "IMAGE_LEFT") == 0) {
 				image_type = TIMELINE_IMAGE_LEFT;
@@ -286,7 +297,6 @@ static bool load_timeline(const char *filename) {
 				fclose(f);
 				return false;
 			}
-
 			TimelineEvent *event = add_event(image_type);
 
 			if (!event) {
@@ -590,10 +600,10 @@ bool timeline_init(const char *d) {
 	if (!text_buf) {
 		text_buf = C2D_TextBufNew(4096);
 	}
+	// Images are optional: a timeline without SPRITE or IMAGE_* lines needs
+	// no gfx.t3x, and load_timeline rejects those lines if nothing loaded.
 	if (!gfxmap_load_assets(directory, &assets)) {
-		printf("Cannot load timeline assets: %s\n", script_path);
-		timeline_close();
-		return false;
+		printf("No timeline images in %s\n", directory);
 	}
 
 	if (!load_timeline(script_path)) {

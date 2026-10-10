@@ -111,6 +111,10 @@ bool gfxmap_load_assets(const char *path, GfxAssets *assets) {
 	return true;
 }
 
+bool gfxmap_assets_loaded(const GfxAssets *assets) {
+	return assets->sheet != NULL;
+}
+
 void gfxmap_free_assets(GfxAssets *assets) {
 	if (assets->sheet) {
 		C2D_SpriteSheetFree(assets->sheet);

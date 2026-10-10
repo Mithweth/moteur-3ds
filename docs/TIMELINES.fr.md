@@ -21,7 +21,13 @@ romfs:/timelines/intro/timeline
 ```
 
 Ses ressources graphiques sont chargées depuis l’ensemble de ressources
-correspondant à cette timeline.
+correspondant à cette timeline : les fichiers PNG placés dans le
+répertoire de la timeline. Elles sont facultatives : une timeline sans
+aucune ligne `IMAGE_LEFT`, `IMAGE_CENTER`, `IMAGE_RIGHT` ou `SPRITE`
+(uniquement du texte, des pauses et de l’audio) n’a besoin d’aucune
+image. Si la timeline utilise l’une de ces directives sans qu’aucune
+image soit disponible, elle est refusée au chargement avec une erreur
+indiquant la ligne fautive.
 
 Une timeline simple peut ressembler à ceci :
 

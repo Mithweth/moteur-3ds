@@ -1047,8 +1047,9 @@ d'une frame à l'autre, rappelez `lang_get`.
 
 ### `gfxmap.h` — images
 
-`gfxmap_load_assets(path, &assets)`, `gfxmap_get_image(&assets, name)`,
-`gfxmap_free_assets(&assets)`, `gfxmap_parse_color(name)`. Voir la
+`gfxmap_load_assets(path, &assets)`, `gfxmap_assets_loaded(&assets)`,
+`gfxmap_get_image(&assets, name)`, `gfxmap_free_assets(&assets)`,
+`gfxmap_parse_color(name)`. Voir la
 section 2 pour la durée de vie des images.
 
 ### Entre extensions
