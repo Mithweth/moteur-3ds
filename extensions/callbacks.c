@@ -4,6 +4,8 @@
 #include <string.h>
 #include "callbacks.h"
 #include "game.h"
+#include "sample_examine.h"
+#include "sample_use.h"
 
 typedef struct {
     const char *name;
@@ -12,7 +14,20 @@ typedef struct {
 
 static MiniGameCallback minigame_callbacks[] = {};
 
-static InventoryCallback inventory_callbacks[] = {};
+static InventoryCallback inventory_callbacks[] = {
+    {
+        .name = "sample_examine",
+        .type = INVENTORY_CALLBACK_EXAMINE,
+        .init = sample_examine_init,
+        .callback = sample_examine_draw,
+        .close = sample_examine_close
+    },
+    {
+        .name = "sample_use",
+        .type = INVENTORY_CALLBACK_USE,
+        .callback = sample_use_callback
+    }
+};
 
 static const size_t minigame_callback_count = sizeof(minigame_callbacks) / sizeof(minigame_callbacks[0]);
 static const size_t inventory_callback_count = sizeof(inventory_callbacks) / sizeof(inventory_callbacks[0]);

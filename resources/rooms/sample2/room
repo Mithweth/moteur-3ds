@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------------------
+# Images
+# ---------------------------------------------------------------------------
+
+IMAGE background 0 0 0
+WHEN STATE_IS raytracing_enabled false
+END_IMAGE
+
+IMAGE background_rt 0 0 0
+WHEN STATE_IS raytracing_enabled true
+END_IMAGE
+
+HOTSPOT RACK 79 66 58 106
+END_HOTSPOT
+
+HOTSPOT OLD_GPU 174 121 56 29
+	USE GPU
+		MESSAGE REPLACE_GPU
+		INVENTORY_REMOVE GPU
+		SET gpu_installed
+	END_USE
+END_HOTSPOT
+
+HOTSPOT RED_BUTTON 141 129 25 20
+	WHEN STATE_IS gpu_installed false
+	ACTION
+		MESSAGE NOTHING_HAPPENS
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT RED_BUTTON 141 129 25 20
+	WHEN STATE_IS gpu_installed true
+	WHEN STATE_IS raytracing_enabled false
+	ACTION
+		TIMELINE raytracing
+		SET raytracing_enabled
+	END_ACTION
+END_HOTSPOT
+
+PATH WEST
+	ACTION
+		ROOM sample1
+	END_ACTION
+END_PATH
