@@ -35,9 +35,10 @@ typedef struct {
 } RoomCondition;
 
 // Action directives allowed inside ACTION and USE blocks.
-// ROOM and MINIGAME change the game mode and end the action flow. TIMELINE
-// changes it too; the rest of the block resumes if the timeline ends with
-// RETURN, as after WAIT_SFX.
+// ROOM and MINIGAME change the game mode and end the action flow. MESSAGE,
+// MESSAGE_IMAGE, WAIT_SFX and TIMELINE suspend it: the rest of the block
+// resumes once the message is dismissed, the sound is over, or the timeline
+// ends with RETURN.
 typedef enum {
 	ROOM_ACTION_SET,
 	ROOM_ACTION_INVENTORY_ADD,
@@ -167,7 +168,7 @@ bool room_init(const char *name);
 // Draw the room images whose conditions match. Call during a bottom-screen
 // scene. Does nothing when no room is loaded.
 void room_draw(void);
-// Free the current room and drop any pending WAIT_SFX continuation.
+// Free the current room and drop the rest of a suspended action block.
 // Invalidates every Hotspot pointer. Safe to call when no room is loaded.
 void room_close(void);
 // First available hotspot (in declaration order) containing the point, or

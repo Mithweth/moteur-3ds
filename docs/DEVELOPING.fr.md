@@ -63,14 +63,16 @@ C'est la clé pour comprendre qui reçoit les touches à un instant donné :
 | `GAME_TITLE`    | l'écran titre                                        | nouvelle partie, chargement                |
 | `GAME_TIMELINE` | la timeline en cours                                 | `END` (écran titre) ou `RETURN` (le jeu)   |
 | `GAME_NORMAL`   | la pièce (déplacements, toucher) et l'inventaire     | une action change de mode                  |
-| `GAME_MESSAGE`  | personne : A, B ou toucher ferme le message          | A, B, toucher, START                       |
-| `GAME_BUSY`     | personne, le temps d'un `WAIT_SFX`                   | fin du son, puis callback éventuel         |
+| `GAME_MESSAGE`  | personne : A, B ou toucher ferme le message          | A, B, toucher, puis callback éventuel      |
+| `GAME_WAIT_SFX` | personne, le temps d'un `WAIT_SFX`                   | fin du son, puis callback éventuel         |
 | `GAME_MINIGAME` | le mini-jeu actif (`update`)                         | `game_minigame_stop()`                     |
 
 Le menu START se superpose à tout ça et prend toutes les touches tant
-qu'il est ouvert. La sauvegarde n'est proposée qu'en `GAME_NORMAL` :
-**on ne sauvegarde jamais au milieu d'un mini-jeu**, ce qui a des
-conséquences pour leur conception (section 5.4).
+qu'il est ouvert ; un message reste affiché en dessous. La sauvegarde
+n'est proposée qu'en `GAME_NORMAL` : **on ne sauvegarde jamais au milieu
+d'un mini-jeu**, ni au milieu d'un bloc d'actions de pièce suspendu par
+un message, un son ou une timeline, ce qui a des conséquences pour leur
+conception (section 5.4).
 
 ## 2. De `resources/` à la romfs
 
@@ -522,9 +524,9 @@ mode (message, timeline, changement de pièce) doit donc venir **après** :
 
 ```c
 static void simon_stop(bool success) {
-    game_minigame_stop();                       // close(), GAME_NORMAL
+    game_minigame_stop();                             // close(), GAME_NORMAL
     if (success) {
-        game_show_message("CELLAR_SIMON_WIN");  // GAME_MESSAGE
+        game_show_message("CELLAR_SIMON_WIN", NULL);  // GAME_MESSAGE
     }
 }
 ```
@@ -539,7 +541,7 @@ Les conséquences d'une victoire se traduisent en général par :
 
 -   `gamestate_set("...")` : la pièce réagit via ses `WHEN STATE_IS`
     (c'est ce que fait `piano` pour le passage secret) ;
--   `game_show_message("...")` : un retour au joueur ;
+-   `game_show_message("...", NULL)` : un retour au joueur ;
 -   `game_timeline_start("...", NULL)` : une fin ou un game over (`digicode`).
     Le mini-jeu est d'abord fermé, donc `update` doit rendre la main tout
     de suite, comme après `game_minigame_stop()` ; une timeline qui finit
@@ -642,7 +644,7 @@ static void switchboard_stop(bool success) {
     game_minigame_stop();
     if (success) {
         gamestate_set("cellar_power_restored");
-        game_show_message("CELLAR_SWITCHBOARD_SOLVED");
+        game_show_message("CELLAR_SWITCHBOARD_SOLVED", NULL);
     }
 }
 
@@ -848,7 +850,7 @@ n'importe quoi avec l'API publique :
 void syringe_use(void) {
     inventory_remove("SYRINGE");
     gamestate_set("item_syringe_injected");
-    game_show_message("ITEM_SYRINGE_USED");
+    game_show_message("ITEM_SYRINGE_USED", NULL);
 }
 ```
 
@@ -928,11 +930,11 @@ void lighter_reset(void) {
 // Only called when no USE LIGHTER block of the target matched.
 void lighter_use(void) {
     if (uses_left == 0) {
-        game_show_message("ITEM_LIGHTER_EMPTY");
+        game_show_message("ITEM_LIGHTER_EMPTY", NULL);
         return;
     }
     uses_left--;
-    game_show_message("ITEM_LIGHTER_FLAME");
+    game_show_message("ITEM_LIGHTER_FLAME", NULL);
 }
 
 char *lighter_serialize(void) {
@@ -1007,8 +1009,8 @@ Les extensions n'accèdent au moteur que par ces en-têtes. Tout le reste
 
 | Fonction                                   | Effet                                                                       |
 |--------------------------------------------|-----------------------------------------------------------------------------|
-| `game_show_message(key)`                   | affiche un message traduit, passe en `GAME_MESSAGE`                         |
-| `game_show_image(image)`                   | affiche une image centrée ; elle doit rester valide jusqu'à la fermeture    |
+| `game_show_message(key, callback)`         | affiche un message traduit, passe en `GAME_MESSAGE` ; une fois le message fermé, revient en `GAME_NORMAL` et appelle `callback` (peut valoir `NULL`) |
+| `game_show_image(image, callback)`         | affiche une image centrée, qui doit rester valide jusqu'à la fermeture ; `callback` comme pour `game_show_message` |
 | `game_minigame_start(name)`                | lance un autre mini-jeu                                                     |
 | `game_minigame_stop()`                     | termine le mini-jeu courant (section 5.3)                                   |
 | `game_timeline_start(name, callback)`      | lance `romfs:/timelines/<name>` ; en cas d'échec, retour à l'écran titre. Ferme le mini-jeu actif, s'il y en a un. À la fin, `END` ramène à l'écran titre ; `RETURN` ramène dans la pièce, puis appelle `callback` (peut valoir `NULL`), qui n'est jamais appelé après `END` ni en cas d'échec |
@@ -1020,7 +1022,8 @@ Les extensions n'accèdent au moteur que par ces en-têtes. Tout le reste
 
 Une seule règle : **le dernier changement de mode de la frame gagne**.
 Un `game_show_message` suivi d'un `game_timeline_start` ne montrera
-jamais le message.
+jamais le message, et son callback ne sera jamais appelé. Pour les
+enchaîner, lancez la timeline depuis le callback du message.
 
 ### `gamestate.h` — états
 

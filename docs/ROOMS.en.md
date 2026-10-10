@@ -269,6 +269,11 @@ changes it. The following blocks then inspect the **new** value.
 This is different from `USE` blocks: matching `ACTION` blocks do not stop
 after the first match.
 
+A block suspended by `MESSAGE`, `MESSAGE_IMAGE`, `WAIT_SFX` or `TIMELINE`
+does stop the scan, though: only the rest of that block resumes, and later
+`ACTION` blocks are not executed (see section 10). In the example above,
+this makes no difference, since the two message blocks exclude each other.
+
 ## 7. USE blocks
 
 `USE` describes the use of an inventory item on a hotspot.
@@ -421,8 +426,8 @@ Actions are valid inside `ACTION` and `USE` blocks.
 | `SET <state>`             | Updates the state according to its declared type. For `TOGGLE`, it flips the current value.               |
 | `INVENTORY_ADD <item>`    | Adds an item to the inventory.                                                                            |
 | `INVENTORY_REMOVE <item>` | Removes an item from the inventory.                                                                       |
-| `MESSAGE <message_id>`    | Displays a localized game message.                                                                        |
-| `MESSAGE_IMAGE <image>`   | Displays an image from the room's assets, centered over the room.                                         |
+| `MESSAGE <message_id>`    | Displays a localized game message and suspends execution until the player dismisses it.                   |
+| `MESSAGE_IMAGE <image>`   | Displays an image from the room's assets, centered over the room, and suspends execution until the player dismisses it. |
 | `SFX <name>`              | Starts a sound effect and continues immediately.                                                          |
 | `WAIT_SFX <name>`         | Starts a sound effect and pauses execution until it finishes.                                             |
 | `ROOM <room>`             | Changes to another room. **Terminates the current action flow and must be the last action in its block.** |
@@ -469,7 +474,7 @@ and closes it if the state is currently `true`.
 Do not interpret `SET foo` as equivalent to `foo = true` without
 checking the state definition.
 
-## 10. Sound effects and action flow
+## 10. Sound effects, messages and action flow
 
 `SFX` starts a sound effect and immediately continues with the next
 action:
@@ -492,6 +497,24 @@ END_ACTION
 Do not rely on later `ACTION` blocks to execute after a `WAIT_SFX`. Any
 actions that must follow the sound should be placed after `WAIT_SFX` in
 the same block.
+
+### Actions after a message
+
+`MESSAGE` and `MESSAGE_IMAGE` suspend the block the same way as
+`WAIT_SFX`, until the player dismisses the message with A, B or a touch:
+
+```text
+ACTION
+    MESSAGE ITEM_BEER_MESSAGE_OK
+    TIMELINE ending
+END_ACTION
+```
+
+The timeline only starts once the message has been read. Several
+messages in a row are shown one after the other. Opening the START menu
+does not dismiss the message: it is still displayed once the menu is
+closed, and saving is not offered while it is shown. As with `WAIT_SFX`,
+later `ACTION` blocks are not executed after the message.
 
 ### Actions after a timeline
 
@@ -541,11 +564,8 @@ END_ACTION
 ```
 
 The `MESSAGE` will never be executed because `ROOM` terminates the
-action flow.
-
-Do not place `WAIT_SFX`, `ROOM`, `TIMELINE` or `MINIGAME` after a
-`MESSAGE` in the same block. The following action immediately replaces the
-message state, so the message will not be displayed.
+action flow. The other way round works: a `MESSAGE` followed by `ROOM`
+shows the message, then changes room once it is dismissed.
 
 ## 11. Complete example
 
@@ -631,8 +651,8 @@ When a room is active:
     its direct `MESSAGE_IMAGE`, if any.
 4.  Normal hotspot actions scan all `ACTION` blocks in declaration
     order. Every matching block executes unless the action flow is
-    suspended by `WAIT_SFX` or `TIMELINE`, or terminated by `ROOM` or
-    `MINIGAME`.
+    suspended by `MESSAGE`, `MESSAGE_IMAGE`, `WAIT_SFX` or `TIMELINE`,
+    or terminated by `ROOM` or `MINIGAME`.
 5.  Item use scans `USE` blocks in declaration order and executes the
     first matching item/condition block.
 6.  A path exists only when its path-level conditions match; using it
@@ -677,9 +697,11 @@ only one variant must be visible.
 Check the state definition. On a `TOGGLE` state, `SET` inverts the
 current value: `false` becomes `true`, and `true` becomes `false`.
 
-### Splitting WAIT_SFX and its continuation into different ACTION blocks
+### Splitting WAIT_SFX or MESSAGE and its continuation into different ACTION blocks
 
-Actions that must occur after a `WAIT_SFX` belong in the same block:
+Actions that must occur after a `WAIT_SFX`, a `MESSAGE` or a
+`MESSAGE_IMAGE` belong in the same block, since later `ACTION` blocks are
+not executed:
 
 ```text
 ACTION
