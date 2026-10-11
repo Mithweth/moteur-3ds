@@ -24,3 +24,7 @@ END_HOTSPOT
 add more colors
 localized pictures
 add ACTION after ROOM directive
+add timed events
+  TIME_IS 08:00 18:00
+with 3DS real clock and discrete clock support
+  CLOCK RELATIVE 07:00 60 may mean that one second in game means one minute in real time
