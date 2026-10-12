@@ -1,2 +1,5 @@
-#sample_toggle_state TOGGLE
-#sample_keep_state KEEP
+computer_turned_off TOGGLE
+gpu_taken KEEP
+gpu_installed KEEP
+raytracing_enabled KEEP
+time_for_a_beer KEEP

@@ -1,0 +1,61 @@
+# HUD (top screen, 400x240). Images: PNG names in hud/, no extension.
+# Colors: RED BLUE GREEN YELLOW BLACK WHITE GRAY LIGHTGRAY.
+# Text: translation keys. "#" at line start = comment.
+#
+# BACKGROUND <image>                     required, drawn at (0, 0)
+#
+# INVENTORY ... END_INVENTORY            required
+#   BACKGROUND <image> <x> <y>           optional
+#   TEXT <color> <key> <x> <y> <size>    optional title
+#   ITEM_POSITION <x> <y>                first icon
+#   ITEM_SIZE <px>                       icon size (default 32)
+#   SPACING <x> <y>                      gap between icons (default 14 10)
+#   COLUMNS <n> / ROWS <n>               visible grid (default 6 / 2)
+#   SELECTION <image> <dx> <dy>          required, frame offset from the icon
+#   SELECTED_ITEM <x> <y> <scale>        optional preview of the selection
+#   EXAMINE_BACKGROUND <image> <x> <y>   optional, shown while examining
+#   EXAMINE_TEXT <color> <x> <y> <size> [width]
+#                                        item description, wrapped at width px
+#
+# DIRECTIONS ... END_DIRECTIONS          optional
+#   BACKGROUND <image> <x> <y>
+#   <NORTH|NORTHEAST|EAST|...|NORTHWEST> <image> <x> <y>
+#                                        shown when the room has that PATH
+#
+# OBJECT ... END_OBJECT                  optional, selected item
+# TARGET ... END_TARGET                  optional, hotspot under the cursor
+#   BACKGROUND <image> <x> <y>
+#   TEXT <color> <key> <x> <y> <size>    fixed label
+#   ITEM <color> <x> <y> <size>          item / hotspot name
+#
+# TIMER ... END_TIMER                    optional countdown (HH:MM:SS)
+#   BACKGROUND <image> <x> <y>
+#   TEXT <color> <x> <y> <size>
+#   MAX_DURATION <seconds>               required
+#   TIMELINE <name>                      required, played at zero
+
+BACKGROUND sample_top
+
+OBJECT
+    ITEM WHITE 58 215 0.45
+END_OBJECT
+
+TARGET
+    ITEM WHITE 58 195 0.45
+END_TARGET
+
+INVENTORY
+    ITEM_POSITION 265 202
+    ITEM_SIZE 25
+    SPACING 6 10
+    COLUMNS 4
+    ROWS 1
+    SELECTION selected -4 -4
+    EXAMINE_BACKGROUND sample_examine 0 0
+    EXAMINE_TEXT WHITE 20 20 0.65 360
+END_INVENTORY
+
+DIRECTIONS
+    WEST left 185 196
+    EAST right 217 196
+END_DIRECTIONS

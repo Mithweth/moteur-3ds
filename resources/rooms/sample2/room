@@ -1,0 +1,78 @@
+# Room (bottom screen, 320x240). Images/sounds: names in this directory,
+# no extension. "#" at line start = comment.
+#
+# Conditions, allowed in any block below; several WHEN = AND:
+#   WHEN STATE_IS <state> <true|false>      states from states/game.state
+#   WHEN INVENTORY_HAS <item> <true|false>
+#
+# IMAGE <image> <x> <y> <z> ... END_IMAGE
+#   Drawn while its WHEN are true; z from -1.0 to 1.0 = depth.
+#
+# HOTSPOT <id> <x> <y> <w> <h> ... END_HOTSPOT
+#   <id> is also the translation key of its name. First active hotspot
+#   under the cursor wins, so declare small ones before big ones.
+#   MESSAGE <key>                 text shown when examining
+#   MESSAGE_IMAGE <image>         image shown when examining
+#   ACTION ... END_ACTION         normal action (A); every matching block
+#                                 runs, in order
+#   USE <item|*> ... END_USE      using an item; only the first matching
+#                                 block runs; holds actions directly
+#
+# PATH <NORTH|NORTHEAST|EAST|...|NORTHWEST> ... END_PATH
+#   Exit, available while its WHEN are true; contains ACTION blocks.
+#
+# Actions (inside ACTION / USE):
+#   SET <state>               KEEP state: true; TOGGLE state: flipped
+#   INVENTORY_ADD <item> / INVENTORY_REMOVE <item>
+#   MESSAGE <key> / MESSAGE_IMAGE <image>   waits until dismissed
+#   SFX <name>                plays a sound, doesn't wait
+#   WAIT_SFX <name>           plays a sound and waits for its end
+#   TIMELINE <name>           waits; the block continues after RETURN only
+#   ROOM <room>               changes room, must be last
+#   MINIGAME <name>           starts a minigame, must be last
+# After MESSAGE, WAIT_SFX or TIMELINE, later ACTION blocks don't run.
+
+# ---------------------------------------------------------------------------
+# Images
+# ---------------------------------------------------------------------------
+
+IMAGE background 0 0 0
+WHEN STATE_IS raytracing_enabled false
+END_IMAGE
+
+IMAGE background_rt 0 0 0
+WHEN STATE_IS raytracing_enabled true
+END_IMAGE
+
+HOTSPOT RACK 79 66 58 106
+END_HOTSPOT
+
+HOTSPOT OLD_GPU 174 121 56 29
+	USE GPU
+		MESSAGE REPLACE_GPU
+		INVENTORY_REMOVE GPU
+		SET gpu_installed
+	END_USE
+END_HOTSPOT
+
+HOTSPOT RED_BUTTON 141 129 25 20
+	WHEN STATE_IS gpu_installed false
+	ACTION
+		MESSAGE NOTHING_HAPPENS
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT RED_BUTTON 141 129 25 20
+	WHEN STATE_IS gpu_installed true
+	WHEN STATE_IS raytracing_enabled false
+	ACTION
+		TIMELINE raytracing
+		SET raytracing_enabled
+	END_ACTION
+END_HOTSPOT
+
+PATH WEST
+	ACTION
+		ROOM sample1
+	END_ACTION
+END_PATH

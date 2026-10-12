@@ -1,0 +1,134 @@
+# Room (bottom screen, 320x240). Images/sounds: names in this directory,
+# no extension. "#" at line start = comment.
+#
+# Conditions, allowed in any block below; several WHEN = AND:
+#   WHEN STATE_IS <state> <true|false>      states from states/game.state
+#   WHEN INVENTORY_HAS <item> <true|false>
+#
+# IMAGE <image> <x> <y> <z> ... END_IMAGE
+#   Drawn while its WHEN are true; z from -1.0 to 1.0 = depth.
+#
+# HOTSPOT <id> <x> <y> <w> <h> ... END_HOTSPOT
+#   <id> is also the translation key of its name. First active hotspot
+#   under the cursor wins, so declare small ones before big ones.
+#   MESSAGE <key>                 text shown when examining
+#   MESSAGE_IMAGE <image>         image shown when examining
+#   ACTION ... END_ACTION         normal action (A); every matching block
+#                                 runs, in order
+#   USE <item|*> ... END_USE      using an item; only the first matching
+#                                 block runs; holds actions directly
+#
+# PATH <NORTH|NORTHEAST|EAST|...|NORTHWEST> ... END_PATH
+#   Exit, available while its WHEN are true; contains ACTION blocks.
+#
+# Actions (inside ACTION / USE):
+#   SET <state>               KEEP state: true; TOGGLE state: flipped
+#   INVENTORY_ADD <item> / INVENTORY_REMOVE <item>
+#   MESSAGE <key> / MESSAGE_IMAGE <image>   waits until dismissed
+#   SFX <name>                plays a sound, doesn't wait
+#   WAIT_SFX <name>           plays a sound and waits for its end
+#   TIMELINE <name>           waits; the block continues after RETURN only
+#   ROOM <room>               changes room, must be last
+#   MINIGAME <name>           starts a minigame, must be last
+# After MESSAGE, WAIT_SFX or TIMELINE, later ACTION blocks don't run.
+
+# ---------------------------------------------------------------------------
+# Images
+# ---------------------------------------------------------------------------
+
+IMAGE background 0 0 0
+WHEN STATE_IS raytracing_enabled false
+END_IMAGE
+
+IMAGE background_rt 0 0 0
+WHEN STATE_IS raytracing_enabled true
+END_IMAGE
+
+IMAGE beer_rt 180 129 0.1
+WHEN STATE_IS raytracing_enabled true
+END_IMAGE
+
+IMAGE empty_beer 99 211 0.1
+	WHEN STATE_IS raytracing_enabled false
+	WHEN INVENTORY_HAS EMPTY_BEER false
+END_IMAGE
+
+IMAGE computer_off 105 87 0.1
+	WHEN STATE_IS raytracing_enabled false
+	WHEN STATE_IS computer_turned_off true
+END_IMAGE
+
+IMAGE graphic_card 29 119 0.2
+	WHEN STATE_IS raytracing_enabled false
+	WHEN INVENTORY_HAS GPU false
+	WHEN STATE_IS gpu_taken false
+END_IMAGE
+
+# ---------------------------------------------------------------------------
+# Hotspots
+# ---------------------------------------------------------------------------
+
+HOTSPOT BEER 99 211 26 19
+	WHEN INVENTORY_HAS EMPTY_BEER false
+	WHEN STATE_IS raytracing_enabled false
+	ACTION
+		INVENTORY_ADD EMPTY_BEER
+		MESSAGE DO_CLEANING
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT BEER 171 132 15 22
+	WHEN STATE_IS raytracing_enabled true
+	ACTION
+		MESSAGE ITEM_BEER_MESSAGE_OK
+		TIMELINE ending
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT BEER 171 132 15 22
+	WHEN STATE_IS raytracing_enabled false
+	MESSAGE ITEM_BEER_MESSAGE_PIXEL
+END_HOTSPOT
+
+HOTSPOT GPU 29 119 104 42
+	WHEN INVENTORY_HAS GPU false
+	WHEN STATE_IS gpu_taken false
+	ACTION
+		INVENTORY_ADD GPU
+		SET gpu_taken
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT COMPUTER_SCREEN 100 82 48 53
+END_HOTSPOT
+
+HOTSPOT POSTER 95 17 46 61
+END_HOTSPOT
+
+HOTSPOT INFERNAL_HOUSE 6 22 53 119
+END_HOTSPOT
+
+HOTSPOT COMPUTER 161 116 15 19
+	WHEN STATE_IS computer_turned_off true
+	ACTION
+		SET computer_turned_off
+		MESSAGE COMPUTER_ON
+	END_ACTION
+END_HOTSPOT
+
+HOTSPOT COMPUTER 161 116 15 19
+	WHEN STATE_IS computer_turned_off false
+	ACTION
+		SET computer_turned_off
+	END_ACTION
+END_HOTSPOT
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+
+PATH EAST
+	ACTION
+		ROOM sample2
+	END_ACTION
+END_PATH
