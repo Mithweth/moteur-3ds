@@ -1042,6 +1042,14 @@ the next, call `lang_get` again.
 `gfxmap_parse_color(name)`. See
 section 2 for image lifetime.
 
+### `text_render.h` — text layout
+
+`text_render_wrap(str, max_width, scale)` returns a copy of `str` with
+line breaks so that no line is wider than `max_width` pixels at `scale`.
+Only spaces are replaced, so the length is unchanged. Returns `NULL` on
+failure; the caller frees the result. Wrap once when the text changes,
+not every frame.
+
 ### Between extensions
 
 An extension can expose its own functions to the others:

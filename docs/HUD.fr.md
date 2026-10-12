@@ -327,7 +327,7 @@ l'inventaire.
 Syntaxe :
 
 ``` text
-EXAMINE_TEXT <color> <x> <y> <size>
+EXAMINE_TEXT <color> <x> <y> <size> [width]
 ```
 
 Exemple :
@@ -339,8 +339,14 @@ EXAMINE_TEXT WHITE 20 62 0.55
 Définit la manière dont la description de l'objet examiné est affichée.
 
 Le texte lui-même provient de la définition de l'objet dans l'inventaire
-; cette directive définit uniquement sa couleur, sa position et sa
-taille.
+; cette directive définit uniquement sa couleur, sa position, sa taille
+et sa largeur.
+
+`width` est optionnel : c'est la largeur maximale d'une ligne, en
+pixels. Les lignes plus longues sont coupées automatiquement entre deux
+mots. Par défaut, le texte peut aller jusqu'au bord droit de l'écran
+(`400 - x`). Un `\n` dans la traduction force toujours un retour à la
+ligne ; un mot seul plus large que `width` n'est pas coupé.
 
 ## 4. Directions
 
@@ -736,7 +742,7 @@ END_TIMER
 | `SELECTION`          | `INVENTORY`                   | oui             | Marqueur affiché autour de l'objet sélectionné.          |
 | `SELECTED_ITEM`      | `INVENTORY`                   | non             | Miniature de l'objet sélectionné ailleurs dans le HUD.   |
 | `EXAMINE_BACKGROUND` | `INVENTORY`                   | non             | Arrière-plan affiché pendant l'examen d'un objet.        |
-| `EXAMINE_TEXT`       | `INVENTORY`                   | non             | Style du texte d'examen.                                 |
+| `EXAMINE_TEXT`       | `INVENTORY`                   | non             | Style et largeur de ligne du texte d'examen.             |
 | `DIRECTIONS`         | —                             | non             | Bloc des directions, fermé par `END_DIRECTIONS` (section 4). |
 | `BACKGROUND`         | `DIRECTIONS`                  | non             | Arrière-plan des directions.                             |
 | `NORTH` … `NORTHWEST` | `DIRECTIONS`                 | non             | Image de l'une des huit directions.                      |

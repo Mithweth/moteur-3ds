@@ -2,9 +2,10 @@
 // Implementation notes: the layout is read from romfs:/hud/hud (format in
 // docs/HUD.en.md) into hud_config. Its images come from the romfs:/hud
 // spritesheet and are resolved once while parsing. All HUD text is re-parsed
-// into text_buf every frame. The countdown lasts the TIMER block's
-// MAX_DURATION seconds of game time, measured with osGetTime(); the timer
-// functions do nothing when there is no TIMER block.
+// into text_buf every frame; the examine text is wrapped to the EXAMINE_TEXT
+// width only once per opening of the examine view. The countdown lasts the
+// TIMER block's MAX_DURATION seconds of game time, measured with osGetTime();
+// the timer functions do nothing when there is no TIMER block.
 #include <3ds.h>
 #include <citro2d.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 #include "str_utils.h"
 #include "gfxmap.h"
 #include "room.h"
+#include "text_render.h"
 
 typedef enum {
 	HUD_BLOCK_NONE,
@@ -50,6 +52,7 @@ typedef struct {
 	float x;
 	float y;
 	float size;
+	float width;
 } HudStyle;
 
 typedef struct {
@@ -108,6 +111,11 @@ typedef struct {
 static GfxAssets assets;
 static C2D_TextBuf text_buf;
 static C2D_Text text;
+// Examine text of the selected item, wrapped by inventory_draw the first time
+// the examine view is drawn. NULL means "not wrapped yet": it is freed as soon
+// as the view closes, so the next item examined gets its own text, and by
+// hud_close.
+static char *examine_wrapped = NULL;
 // Game time already spent, in milliseconds. last_time is the osGetTime() value
 // at the previous update; timer_resume resets it after a suspension so the time
 // spent in the home menu or in sleep mode isn't counted.
@@ -289,8 +297,7 @@ static bool load_hud(const char *filename) {
 				}
 
 				hud_config.inventory.text.id = strdup(text);
-				hud_config.inventory.text.style.color =
-					gfxmap_parse_color(color);
+				hud_config.inventory.text.style.color = gfxmap_parse_color(color);
 				hud_config.inventory.text.style.x = atof(x);
 				hud_config.inventory.text.style.y = atof(y);
 				hud_config.inventory.text.style.size = atof(size);
@@ -448,6 +455,7 @@ static bool load_hud(const char *filename) {
 				char *x     = strtok(NULL, " ");
 				char *y     = strtok(NULL, " ");
 				char *size  = strtok(NULL, " ");
+				char *width = strtok(NULL, " ");
 
 				if (!color || !x || !y || !size) {
 					printf("%s:%zu: syntax error\n", filename, line_number);
@@ -455,11 +463,11 @@ static bool load_hud(const char *filename) {
 					return false;
 				}
 
-				hud_config.inventory.examine_text.color =
-					gfxmap_parse_color(color);
+				hud_config.inventory.examine_text.color = gfxmap_parse_color(color);
 				hud_config.inventory.examine_text.x = atof(x);
 				hud_config.inventory.examine_text.y = atof(y);
 				hud_config.inventory.examine_text.size = atof(size);
+				hud_config.inventory.examine_text.width = (width) ? atof(width) : 400.0f - atof(x);
 				continue;
 			}
 
@@ -779,6 +787,14 @@ static void inventory_draw(void) {
 		C2D_TextOptimize(&text);
 		draw_bold_text(&text, hud->text.style.x, hud->text.style.y, 0.2f, hud->text.style.size, hud->text.style.color);
 	}
+	// Freed before the early return: otherwise emptying the inventory after an
+	// examination would keep the old text, and the next item examined would
+	// show it instead of its own.
+	if (!inventory_is_active()) {
+		free(examine_wrapped);
+		examine_wrapped = NULL;
+	}
+
 	if (inventory_get_count() == 0) {
 		return;
 	}
@@ -795,9 +811,17 @@ static void inventory_draw(void) {
 			C2D_DrawImageAt(item->detail_image, item->detail_x, item->detail_y, 0.9f, NULL, 1.0f, 1.0f);
 		}
 		if (item->examine_text) {
-			C2D_TextParse(&text, text_buf, lang_get(item->examine_text));
-			C2D_TextOptimize(&text);
-			C2D_DrawText(&text, C2D_WithColor, hud->examine_text.x, hud->examine_text.y, 0.3f, hud->examine_text.size, hud->examine_text.size, hud->examine_text.color);
+			// Wrapped once per opening: the selection cannot change while the
+			// examine view is open. If wrapping fails, examine_wrapped stays
+			// NULL and it is retried on the next frame.
+			if (!examine_wrapped) {
+				examine_wrapped = text_render_wrap(lang_get(item->examine_text), hud->examine_text.width, hud->examine_text.size);
+			}
+			if (examine_wrapped) {
+				C2D_TextParse(&text, text_buf, examine_wrapped);
+				C2D_TextOptimize(&text);
+				C2D_DrawText(&text, C2D_WithColor, hud->examine_text.x, hud->examine_text.y, 0.3f, hud->examine_text.size, hud->examine_text.size, hud->examine_text.color);
+			}
 		}
 		if (item->examine_callback) {
 			item->examine_callback();
@@ -826,7 +850,7 @@ static void inventory_draw(void) {
 
 		float x = hud->item_x + (visible % hud->columns) * (hud->item_size + hud->item_spacing_x);
 		float y = hud->item_y + (visible / hud->columns) * (hud->item_size + hud->item_spacing_y);
-        
+
 		if (i == inventory_get_selected()) {
 			C2D_DrawImageAt(hud->selection.image, x + hud->selection.x, y + hud->selection.y, 0.2f, NULL, 1.0f, 1.0f);
 		}
@@ -984,6 +1008,9 @@ void hud_close(void) {
 	free(hud_config.timer.timeline);
 
 	memset(&hud_config, 0, sizeof(hud_config));
+
+	free(examine_wrapped);
+	examine_wrapped = NULL;
 
 	if (text_buf) {
 		C2D_TextBufDelete(text_buf);
