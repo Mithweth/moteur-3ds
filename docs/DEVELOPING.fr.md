@@ -63,9 +63,24 @@ C'est la clé pour comprendre qui reçoit les touches à un instant donné :
 | `GAME_TITLE`    | l'écran titre                                        | nouvelle partie, chargement                |
 | `GAME_TIMELINE` | la timeline en cours                                 | `END` (écran titre) ou `RETURN` (le jeu)   |
 | `GAME_NORMAL`   | la pièce (déplacements, toucher) et l'inventaire     | une action change de mode                  |
-| `GAME_MESSAGE`  | personne : A, B ou toucher ferme le message          | A, B, toucher, puis callback éventuel      |
+| `GAME_MESSAGE`  | personne : toute touche ou toucher ferme le message  | touche ou toucher, puis callback éventuel  |
 | `GAME_WAIT_SFX` | personne, le temps d'un `WAIT_SFX`                   | fin du son, puis callback éventuel         |
 | `GAME_MINIGAME` | le mini-jeu actif (`update`)                         | `game_minigame_stop()`                     |
+
+La touche qui ferme un message n'est pas perdue : une fois le message
+fermé et son callback exécuté, elle agit dans la pièce pendant la même
+frame (X examine l'objet sélectionné, la croix déplace la sélection, le
+stick circulaire change de pièce…), si le jeu est revenu en
+`GAME_NORMAL`. Deux exceptions :
+
+- A ne fait que fermer le message : il utiliserait l'objet sélectionné,
+  et un `CANNOT_USE_MESSAGE` réapparaîtrait aussitôt.
+- Un toucher n'agit sur la pièce qu'après le message propre d'une zone
+  (sa ligne `MESSAGE` ou `MESSAGE_IMAGE`) : toucher à nouveau la même
+  zone exécute ses actions, en toucher une autre affiche son message.
+  Après un message affiché par une action (`MESSAGE` ou `MESSAGE_IMAGE`
+  dans un bloc `ACTION`), le toucher ne fait que le fermer, sinon il
+  relancerait l'action.
 
 Le menu START se superpose à tout ça et prend toutes les touches tant
 qu'il est ouvert ; un message reste affiché en dessous. La sauvegarde

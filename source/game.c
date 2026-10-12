@@ -813,11 +813,26 @@ bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
 			return true;
 
 		case GAME_MESSAGE:
-			if (keys & (KEY_A | KEY_B | KEY_TOUCH)) {
-				examine_image = (C2D_Image){0};
-				game_resume();
+			if (!keys) {
+				return true;
 			}
-			return true;
+			// A hotspot's own message has no callback: touching again acts on
+			// the room (the player has read it). An action's message continues
+			// its block (room.c always passes continue_actions): the touch
+			// only closes it, or it would run the action again.
+			bool has_callbacks = (game_resume_callback != NULL);
+			examine_image = (C2D_Image){0};
+			game_resume();
+			// The callback may have changed the mode (timeline, mini-game, new
+			// message...): the keys only act in GAME_NORMAL.
+			if (game_mode != GAME_NORMAL) {
+				return true;
+			}
+			keys &= ~KEY_A;
+			if (has_callbacks) {
+				keys &= ~KEY_TOUCH;
+			}
+			break;
 
 		case GAME_WAIT_SFX:
 			if (!sfx_is_playing(wait_sfx_channel)) {

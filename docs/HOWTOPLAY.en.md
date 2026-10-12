@@ -50,7 +50,8 @@ Examining an item may display text or an image, or trigger game-specific
 behaviour. Not every item necessarily provides a detailed view or a
 special examine action.
 
-Press **B** to close the examination view or return to the game.
+Press any button, or touch the screen, to close the examination view and
+return to the game.
 
 ## 4. Using an item
 
@@ -68,6 +69,12 @@ or display a message.
 ## 5. Messages and timelines
 
 Adventures can display messages, images, and scripted timelines.
+
+Press any button, or touch the screen, to close a message. Apart from
+**A**, which only closes it, the button also does its usual job: for
+instance, **X** closes the message and examines the selected item.
+After reading the description of an object in the room, touch it again
+to interact with it.
 
 **B** is generally used to close, cancel, or leave the current screen
 when that operation is available.
