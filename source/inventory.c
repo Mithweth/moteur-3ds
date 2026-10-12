@@ -242,8 +242,7 @@ void inventory_set_columns(size_t value) {
 
 bool inventory_update(u32 keys) {
 	if (inventory_mode == INVENTORY_ACTION) {
-// While examining, every key is swallowed; only X or B leave the view.
-		if ((keys & KEY_X) || (keys & KEY_B)) {
+		if (keys) {
 			inventory_mode = INVENTORY_NORMAL;
 		}
 		return true;

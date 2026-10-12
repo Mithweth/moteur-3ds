@@ -51,7 +51,8 @@ L'examen peut afficher un texte, une image ou déclencher un comportement
 propre au jeu. Tous les objets ne proposent pas nécessairement une vue
 ou une action particulière.
 
-**B** permet de fermer l'examen ou de revenir au jeu.
+Appuyez sur n'importe quel bouton, ou touchez l'écran, pour fermer
+l'examen et revenir au jeu.
 
 ## 4. Utiliser un objet
 
@@ -71,6 +72,12 @@ simplement la refuser ou afficher un message.
 
 Les aventures peuvent afficher des messages, des images et des séquences
 scénarisées.
+
+Appuyez sur n'importe quel bouton, ou touchez l'écran, pour fermer un
+message. À part **A**, qui ne fait que le fermer, le bouton garde aussi
+son rôle habituel : par exemple, **X** ferme le message et examine
+l'objet sélectionné. Après avoir lu la description d'un élément de la
+pièce, touchez-le à nouveau pour interagir avec lui.
 
 **B** sert généralement à fermer, annuler ou quitter l'écran courant
 lorsque cette opération est possible.

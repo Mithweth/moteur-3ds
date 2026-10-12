@@ -501,7 +501,10 @@ the same block.
 ### Actions after a message
 
 `MESSAGE` and `MESSAGE_IMAGE` suspend the block the same way as
-`WAIT_SFX`, until the player dismisses the message with A, B or a touch:
+`WAIT_SFX`, until the player dismisses the message with any button, the
+Circle Pad or a touch (the key then also acts in the room, except A and,
+after an action's message, the touch; see `DEVELOPING.en.md` section
+1.2):
 
 ```text
 ACTION

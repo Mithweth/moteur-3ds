@@ -550,8 +550,10 @@ Ne pas compter sur l'exécution de blocs `ACTION` ultérieurs après un
 ### Actions après un message
 
 `MESSAGE` et `MESSAGE_IMAGE` suspendent le bloc de la même façon que
-`WAIT_SFX`, jusqu'à ce que le joueur ferme le message avec A, B ou un
-toucher :
+`WAIT_SFX`, jusqu'à ce que le joueur ferme le message avec n'importe
+quel bouton, le stick circulaire ou un toucher (la touche agit ensuite
+aussi dans la pièce, sauf A et, après le message d'une action, le
+toucher ; voir `DEVELOPING.fr.md` section 1.2) :
 
 ``` text
 ACTION

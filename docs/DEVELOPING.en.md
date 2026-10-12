@@ -63,9 +63,23 @@ the key to understanding who receives the input at any given moment:
 | `GAME_TITLE`    | the title screen                                     | new game, load                             |
 | `GAME_TIMELINE` | the running timeline                                 | `END` (title screen) or `RETURN` (the game) |
 | `GAME_NORMAL`   | the room (movement, touch) and the inventory         | an action changes the mode                 |
-| `GAME_MESSAGE`  | nobody: A, B or touch closes the message             | A, B, touch, then optional callback        |
+| `GAME_MESSAGE`  | nobody: any key or touch closes the message          | any key or touch, then optional callback   |
 | `GAME_WAIT_SFX` | nobody, for the duration of a `WAIT_SFX`             | end of the sound, then optional callback   |
 | `GAME_MINIGAME` | the active mini-game (`update`)                      | `game_minigame_stop()`                     |
+
+The key that closes a message is not lost: once the message is closed
+and its callback has run, it acts in the room the same frame (X examines
+the selected item, the D-pad moves the selection, the Circle Pad moves to
+another room...), if the game is back in `GAME_NORMAL`. Two exceptions:
+
+- A only closes the message: it would use the selected item, and a
+  `CANNOT_USE_MESSAGE` would show up again at once.
+- A touch acts on the room only after a hotspot's own message (its
+  `MESSAGE` or `MESSAGE_IMAGE` line): touching the same hotspot again
+  runs its actions, touching another one shows its message. After a
+  message shown by an action (`MESSAGE` or `MESSAGE_IMAGE` in an
+  `ACTION` block), the touch only closes it, otherwise it would run the
+  action again.
 
 The START menu sits on top of all this and takes all the input while it
 is open; a message stays displayed under it. Saving is only offered in
