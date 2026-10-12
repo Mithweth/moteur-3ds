@@ -1055,6 +1055,15 @@ d'une frame à l'autre, rappelez `lang_get`.
 `gfxmap_parse_color(name)`. Voir la
 section 2 pour la durée de vie des images.
 
+### `text_render.h` — mise en page du texte
+
+`text_render_wrap(str, max_width, scale)` retourne une copie de `str`
+avec des retours à la ligne, pour qu'aucune ligne ne dépasse
+`max_width` pixels à l'échelle `scale`. Seuls des espaces sont remplacés, la
+longueur ne change donc pas. Retourne `NULL` en cas d'échec ; l'appelant
+libère le résultat. À appeler une fois quand le texte change, pas à
+chaque frame.
+
 ### Entre extensions
 
 Une extension peut exposer ses propres fonctions aux autres :

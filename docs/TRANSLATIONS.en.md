@@ -131,6 +131,10 @@ STUDY_NO_LIGHTBULB=No use! There is no\nlight bulb...
 The engine replaces each `\n` with an actual line break when loading the
 file.
 
+Messages, examination texts and timeline texts are also wrapped
+automatically between two words when a line is too wide: `\n` is only
+needed to force a break at a specific place.
+
 Several line breaks can be used:
 
 ``` ini

@@ -18,6 +18,7 @@
 #include "timeline.h"
 #include "callbacks.h"
 #include "str_utils.h"
+#include "text_render.h"
 #include "save.h"
 
 #define GAME_CALLBACK_MAX     8
@@ -57,9 +58,10 @@ static Hotspot *active_hotspot = NULL;
 // Hotspot shown in the HUD and used as the target of inventory items.
 // Both pointers point into the current room and are reset by game_set_room.
 static Hotspot *target = NULL;
-// Message shown in GAME_MESSAGE; when examine_image is set, it is shown
-// instead of the text.
-static const char *message_text = NULL;
+// Message shown in GAME_MESSAGE, owned by game.c: wrapped to the message box
+// width by game_show_message (raw copy if wrapping fails), freed when replaced
+// or reset. When examine_image is set, it is shown instead of the text.
+static char *message_text = NULL;
 static C2D_Image examine_image;
 static C2D_TextBuf text_buf;
 static C2D_Text text;
@@ -310,6 +312,7 @@ bool game_set_room(const char *name) {
 	active_hotspot = NULL;
 	target = NULL;
 	game_mode = GAME_NORMAL;
+	free(message_text);
 	message_text = NULL;
 	examine_image = (C2D_Image){0};
 	if (!room_init(room_name)) {
@@ -336,6 +339,7 @@ static void game_close_modes(void) {
 	room_close();
 	active_hotspot = NULL;
 	target = NULL;
+	free(message_text);
 	message_text = NULL;
 	game_resume_callback = NULL;
 	title_close();
@@ -352,6 +356,7 @@ void game_close(void) {
 	free(game_config.room);
 	free(game_config.music);
 	free(game_config.cannot_use_message);
+	free(message_text);
 	for (size_t i = 0; i < game_config.item_count; i++) {
 		free(game_config.items[i]);
 	}
@@ -471,6 +476,7 @@ static void game_reset(void) {
 	gamestate_reset();
 	hud_reset();
 	game_mode = GAME_NORMAL;
+	free(message_text);
 	message_text = NULL;
 	active_hotspot = NULL;
 	// No room yet in this game: game_set_room must not fall back to the room
@@ -695,7 +701,11 @@ void game_cannot_use_item(void) {
 
 void game_show_message(const char *message_id, void (*callback)(void)) {
 	examine_image = (C2D_Image){0};
-	message_text = lang_get(message_id);
+	free(message_text);
+	message_text = text_render_wrap(lang_get(message_id), 276.0f, 0.5f);
+	if (!message_text) {
+		message_text = strdup(lang_get(message_id));
+	}
 	printf("Print: %s\n", message_id);
 	game_mode = GAME_MESSAGE;
 	game_resume_callback = callback;

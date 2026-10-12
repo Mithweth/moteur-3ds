@@ -316,7 +316,7 @@ Defines an optional background displayed while examining an inventory item.
 Syntax:
 
 ```text
-EXAMINE_TEXT <color> <x> <y> <size>
+EXAMINE_TEXT <color> <x> <y> <size> [width]
 ```
 
 Example:
@@ -328,7 +328,12 @@ EXAMINE_TEXT WHITE 20 62 0.55
 Defines how the description of the examined item is rendered.
 
 The text itself comes from the inventory item definition; this directive only
-defines its color, position and size.
+defines its color, position, size and width.
+
+`width` is optional: it is the maximum width of a line, in pixels. Longer
+lines are wrapped automatically between two words. By default the text may
+extend to the right edge of the screen (`400 - x`). A `\n` in the translation
+still forces a line break; a single word wider than `width` is not split.
 
 ## 4. Directions
 
@@ -717,7 +722,7 @@ END_TIMER
 | `SELECTION`          | `INVENTORY`                   | yes             | Marker drawn around the selected item.                   |
 | `SELECTED_ITEM`      | `INVENTORY`                   | no              | Miniature of the selected item elsewhere in the HUD.     |
 | `EXAMINE_BACKGROUND` | `INVENTORY`                   | no              | Background shown while an item is examined.              |
-| `EXAMINE_TEXT`       | `INVENTORY`                   | no              | Style of the examination text.                           |
+| `EXAMINE_TEXT`       | `INVENTORY`                   | no              | Style and line width of the examination text.            |
 | `DIRECTIONS`         | —                             | no              | Directions block, closed by `END_DIRECTIONS` (section 4). |
 | `BACKGROUND`         | `DIRECTIONS`                  | no              | Background of the directions.                            |
 | `NORTH` … `NORTHWEST` | `DIRECTIONS`                 | no              | Image of one of the eight directions.                    |

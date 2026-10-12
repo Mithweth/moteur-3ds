@@ -122,7 +122,9 @@ YELLOW
 GREEN
 ```
 
-Text is displayed progressively, character by character.
+Text is displayed progressively, character by character. Lines are
+wrapped automatically between two words to fit the screen; a `\n` in the
+translation still forces a line break.
 
 Several `TEXT` events in the same scene are cumulative. A new `TEXT`
 continues after the text already displayed; it does not clear the

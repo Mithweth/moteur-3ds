@@ -133,7 +133,9 @@ YELLOW
 GREEN
 ```
 
-Le texte est affiché progressivement, caractère par caractère.
+Le texte est affiché progressivement, caractère par caractère. Les
+lignes sont coupées automatiquement entre deux mots pour tenir dans
+l'écran ; un `\n` dans la traduction force toujours un retour à la ligne.
 
 Plusieurs événements `TEXT` appartenant à la même scène sont cumulatifs.
 Un nouveau `TEXT` continue après le texte déjà affiché ; il n’efface pas

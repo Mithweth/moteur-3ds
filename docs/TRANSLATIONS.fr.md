@@ -134,6 +134,10 @@ STUDY_NO_LIGHTBULB=Inutile ! Il n'y a pas\nd'ampoule...
 Le moteur remplace chaque `\n` par un véritable retour à la ligne lors
 du chargement.
 
+Les messages, les textes d'examen et les textes des timelines sont aussi
+coupés automatiquement entre deux mots quand une ligne est trop large :
+`\n` ne sert qu'à forcer un retour à un endroit précis.
+
 Plusieurs retours à la ligne peuvent être utilisés :
 
 ``` ini

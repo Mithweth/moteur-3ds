@@ -10,6 +10,9 @@
 // the final END or RETURN and game.c reads timeline_exit() to pick the title
 // screen or the game. load_timeline only accepts a script that ends with one
 // of them, so the last event is always a valid target for B.
+// Line breaks are computed once per TEXT event, over the whole scene, never
+// while typing: previous_str and current_str are then two prefixes of the
+// same wrapped string and always break at the same places.
 #include <citro2d.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -20,6 +23,7 @@
 #include "game.h"
 #include "gfxmap.h"
 #include "str_utils.h"
+#include "text_render.h"
 #include "timeline.h"
 
 #define TIMELINE_MAX_EVENTS   256
@@ -64,7 +68,8 @@ typedef struct {
 static char *directory = NULL;
 
 // Typewriter state. event_pos is the byte offset reached in the current TEXT
-// string; text_position is the length of current_str, which accumulates every
+// string (only read directly when wrapping failed, see scene_wrapped);
+// text_position is the length of current_str, which accumulates every
 // TEXT of the scene until END_SCENE. previous_str is current_str minus the last
 // character typed: it is drawn in the event color over current_str (drawn in
 // light grey), so the newest character stands out.
@@ -76,6 +81,10 @@ static C2D_Text text_current;
 static C2D_Text text_previous;
 static C2D_TextBuf text_buf;
 static u32 current_color;
+// Text already shown in the scene plus the whole TEXT event being typed, with
+// its line breaks. Wrapped by timeline_update before the event's first
+// character, freed when the event is done and by timeline_close.
+static char *scene_wrapped = NULL;
 
 static size_t current_event;
 static u64 next_char_time;
@@ -400,10 +409,25 @@ bool timeline_update(u32 keys) {
 	}
 	const TimelineEvent *event = &events[current_event];
 
+	// TEXT events of a scene continue on the same line, so the event is wrapped
+	// together with what is already shown, once, before anything types it.
+	// text_render_wrap only turns spaces into newlines, so scene_wrapped starts
+	// with current_str and the next character to type is
+	// scene_wrapped[text_position].
+	if (event->type == TIMELINE_TEXT && !scene_wrapped) {
+		char scene[sizeof(current_str)];
+		snprintf(scene, sizeof(scene), "%s%s", current_str, lang_get(event->text));
+		scene_wrapped = text_render_wrap(scene, 306.0f, 0.6f);
+		if (scene_wrapped) {
+			// A word split across two TEXT events may have moved to the next line.
+			memcpy(current_str, scene_wrapped, text_position);
+		}
+	}
+
 	if ((keys & KEY_A) && (event->type == TIMELINE_TEXT || event->type == TIMELINE_PAUSE)) {
 		if (event->type == TIMELINE_TEXT) {
-			const char *str = lang_get(event->text);
-			const char *remaining = &str[event_pos];
+			// Raw text if wrapping failed: same offsets, just no line breaks.
+			const char *remaining = scene_wrapped ? &scene_wrapped[text_position] : &lang_get(event->text)[event_pos];
 			size_t len = strlen(remaining);
 			if (text_position + len >= sizeof(current_str)) {
 				printf("Timeline text buffer overflow\n");
@@ -413,6 +437,8 @@ bool timeline_update(u32 keys) {
 			}
 			memcpy(previous_str, current_str, text_position + 1);
 			event_pos = 0;
+			free(scene_wrapped);
+			scene_wrapped = NULL;
 			update_text();
 		}
 		pause_start = 0;
@@ -445,20 +471,22 @@ bool timeline_update(u32 keys) {
 		break;
 	case TIMELINE_TEXT:
 		if (now >= next_char_time) {
-			const char *str = lang_get(event->text);
 			current_color = event->color;
+			const char *next = scene_wrapped ? &scene_wrapped[text_position] : &lang_get(event->text)[event_pos];
 
-			if (str[event_pos] != '\0') {
-				size_t len = utf8_char_size(&str[event_pos]);
+			if (*next != '\0') {
+				size_t len = utf8_char_size(next);
 				if (text_position + len >= sizeof(current_str)) {
 					printf("Timeline text buffer overflow\n");
 					event_pos = 0;
+					free(scene_wrapped);
+					scene_wrapped = NULL;
 					current_event++;
 					break;
 				}
 				memcpy(previous_str, current_str, text_position);
 				previous_str[text_position] = '\0';
-				memcpy(&current_str[text_position], &str[event_pos], len);
+				memcpy(&current_str[text_position], next, len);
 				text_position += len;
 				current_str[text_position] = '\0';
 				event_pos += len;
@@ -466,6 +494,8 @@ bool timeline_update(u32 keys) {
 				update_text();
 			} else {
 				memcpy(previous_str, current_str, text_position + 1);
+				free(scene_wrapped);
+				scene_wrapped = NULL;
 				event_pos = 0;
 				current_event++;
 			}
@@ -576,6 +606,8 @@ void timeline_close(void) {
 	}
 	free(directory);
 	directory = NULL;
+	free(scene_wrapped);
+	scene_wrapped = NULL;
 	event_count = 0;
 	gfxmap_free_assets(&assets);
 	if (text_buf) {
