@@ -4,6 +4,7 @@
 // glue used by room actions and extensions to change mode. See game.h for the
 // public API.
 #include <3ds.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -521,65 +522,50 @@ bool game_wait_for_sfx(const char *sfx, void (*callback)(void)) {
 	return true;
 }
 
-// Turns the circle pad position into one of eight directions. A direction is
-// a cardinal one when one axis is more than twice the other, otherwise a
-// diagonal. Only one move is made per push of the stick.
+// Turns the circle pad position into one of eight directions, each covering
+// a 45° sector. A move fires once the stick goes past TRIGGER, and the next
+// one waits until the stick has come back under REARM, so that one push
+// makes exactly one move.
 static void update_movement(circlePosition analog) {
-	const int DEADZONE = 60;
+	const int TRIGGER = 100;
+	const int REARM = 40;
 
 	int x = analog.dx;
 	int y = analog.dy;
+	int r2 = x * x + y * y;
 
-	if (abs(x) < DEADZONE && abs(y) < DEADZONE) {
+	if (r2 < REARM * REARM) {
 		circle_ready = true;
 		return;
 	}
-
-	if (!circle_ready) {
+	if (!circle_ready || r2 < TRIGGER * TRIGGER) {
 		return;
 	}
 
-	int ax = abs(x);
-	int ay = abs(y);
+	// Angle in degrees, 0 = east, counter-clockwise, folded into 0..360
+	float angle = atan2f(y, x) * 180.0f / (float)M_PI;
+	if (angle < 0) {
+		angle += 360.0f;
+	}
 
-	if (ay > ax * 2) {
-		if (y > 0) {
-			circle_ready = false;
-			room_move_north();
-			return;
-		} else if (y < 0) {
-			circle_ready = false;
-			room_move_south();
-			return;
-		}
-	} else if (ax > ay * 2) {
-		if (x > 0) {
-			circle_ready = false;
-			room_move_east();
-			return;
-		} else if (x < 0) {
-			circle_ready = false;
-			room_move_west();
-			return;
-		}
+	circle_ready = false;
+
+	if (angle < 22.5f || angle >= 337.5f) {
+		room_move_east();
+	} else if (angle < 67.5f) {
+		room_move_northeast();
+	} else if (angle < 112.5f) {
+		room_move_north();
+	} else if (angle < 157.5f) {
+		room_move_northwest();
+	} else if (angle < 202.5f) {
+		room_move_west();
+	} else if (angle < 247.5f) {
+		room_move_southwest();
+	} else if (angle < 292.5f) {
+		room_move_south();
 	} else {
-		if (x > 0 && y > 0) {
-			circle_ready = false;
-			room_move_northeast();
-			return;
-		} else if (x < 0 && y > 0) {
-			circle_ready = false;
-			room_move_northwest();
-			return;
-		} else if (x > 0 && y < 0) {
-			circle_ready = false;
-			room_move_southeast();
-			return;
-		} else if (x < 0 && y < 0) {
-			circle_ready = false;
-			room_move_southwest();
-			return;
-		}
+		room_move_southeast();
 	}
 }
 
