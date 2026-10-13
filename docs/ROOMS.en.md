@@ -15,6 +15,8 @@ romfs:/rooms/livingroom/room
 ```
 
 Its graphical assets are loaded from the corresponding room asset set.
+The same directory may hold choice files, opened by the `CHOICE` action
+(see [CHOICES.en.md](./CHOICES.en.md)).
 
 A typical room contains three sections:
 
@@ -433,6 +435,7 @@ Actions are valid inside `ACTION` and `USE` blocks.
 | `ROOM <room>`             | Changes to another room. **Terminates the current action flow and must be the last action in its block.** |
 | `TIMELINE <name>`         | Starts a timeline and suspends execution until it ends. After `RETURN`, the rest of the block runs; after `END`, it is dropped. |
 | `MINIGAME <name>`         | Starts a minigame. **Terminates the current action flow and must be the last action in its block.**       |
+| `CHOICE <file>`           | Shows the choice file `<file>` of the room directory and suspends execution until the player leaves it (see [CHOICES.en.md](./CHOICES.en.md)). |
 
 Sound effects can be specified either by a name relative to the room directory
 or by an absolute `romfs:/` path:
@@ -542,6 +545,29 @@ Pressing **B** to skip the timeline still reaches its final `RETURN` or
 blocks are not executed after the timeline. Actions placed **before**
 `TIMELINE` take effect immediately, but the player only sees their
 result once back in the room.
+
+### Actions after a choice
+
+`CHOICE` suspends the block the same way as `MESSAGE`, until the player
+leaves the choice, with an option running `EXIT_CHOICE` or with **B**:
+
+```text
+ACTION
+    CHOICE dustbin
+    SFX bin_lid_close
+END_ACTION
+```
+
+The sound plays once the choice is closed. The options of the choice run
+their own actions while it is open (see
+[CHOICES.en.md](./CHOICES.en.md)). As with `WAIT_SFX`, later `ACTION`
+blocks are not executed after the choice. If
+the choice file cannot be loaded, or every option is hidden by its
+conditions, the choice is not shown and the rest of the block runs at
+once.
+
+`EXIT_CHOICE` is only meaningful inside a choice file: in a room file, it
+does nothing.
 
 ### Terminal actions
 
@@ -654,8 +680,8 @@ When a room is active:
     its direct `MESSAGE_IMAGE`, if any.
 4.  Normal hotspot actions scan all `ACTION` blocks in declaration
     order. Every matching block executes unless the action flow is
-    suspended by `MESSAGE`, `MESSAGE_IMAGE`, `WAIT_SFX` or `TIMELINE`,
-    or terminated by `ROOM` or `MINIGAME`.
+    suspended by `MESSAGE`, `MESSAGE_IMAGE`, `WAIT_SFX`, `TIMELINE` or
+    `CHOICE`, or terminated by `ROOM` or `MINIGAME`.
 5.  Item use scans `USE` blocks in declaration order and executes the
     first matching item/condition block.
 6.  A path exists only when its path-level conditions match; using it

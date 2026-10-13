@@ -82,6 +82,14 @@ when that operation is available.
 The exact behaviour of a timeline — whether it can be accelerated,
 skipped, or return to the game — is defined by the adventure.
 
+An adventure can also ask a question with several answers, shown as a
+list of buttons on the bottom screen, for instance during a
+conversation. Move between the answers with **up** and **down** (D-Pad
+or Circle Pad), then press **A**, or touch the answer directly. **B**
+goes back to the previous question, or closes the list. While the list
+is shown, you cannot move or use items; a countdown, if the adventure
+has one, keeps running.
+
 ## 6. Minigames
 
 MOTEUR allows a game to provide its own minigames written in C.

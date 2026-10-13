@@ -2,6 +2,14 @@
 // Room loading, drawing and action execution. The current room is a single
 // heap-allocated Room owned by this module (NULL when none is loaded).
 // See docs/ROOMS.en.md for the room script format and its semantics.
+// Implementation notes: a CHOICE action in a room script loads the whole
+// choice file (docs/CHOICES.en.md) into `choices`, which lives until the
+// outermost choice is closed or the room is. Nested CHOICE actions only look
+// up another block of that same file and push it on choice_stack; each frame
+// remembers where the action flow resumes once its choice is left, so
+// EXIT_CHOICE (or B) acts like a return. A choice suspends the action flow
+// like a MESSAGE: execute_actions returns true and room_choice_select
+// starts the next flow when the player picks an option.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,16 +30,39 @@ static Room *room = NULL;
 // Remaining actions of a block suspended by MESSAGE, MESSAGE_IMAGE, WAIT_SFX
 // or TIMELINE. game.c calls continue_actions() once the message is dismissed,
 // the sound is over, or the timeline ends with RETURN, to resume at `next`.
-// The pointer refers to arrays inside the room, so room_close() clears it.
+// The pointer refers to arrays inside the room or the choice file, so
+// room_close() clears it.
 typedef struct {
 	RoomAction *actions;
 	size_t count;
 	size_t next;
 } PendingActions;
 
+// Every CHOICE block of the open choice file; MAIN is the entry point.
+typedef struct {
+	Choice choices[CHOICE_MAX_CHOICES];
+	size_t choice_count;
+} ChoiceFile;
+
+// One open choice. actions[next..count) is the rest of the block whose CHOICE
+// action opened it (in the room or in the parent choice's option), resumed
+// when this choice is left.
+typedef struct {
+	Choice *choice;
+	RoomAction *actions;
+	size_t count;
+	size_t next;
+} ChoiceFrame;
+
 static PendingActions pending_actions;
+// The open choice file, or NULL when no choice is open.
+static ChoiceFile *choices = NULL;
+// Open choices, outermost first: choice_stack[choice_depth - 1] is shown.
+static ChoiceFrame choice_stack[CHOICE_MAX_DEPTH];
+static size_t choice_depth = 0;
 
 static void continue_actions(void);
+static bool execute_actions(RoomAction *actions, size_t count, size_t start);
 
 // Remembers where execute_actions resumes once game.c calls continue_actions().
 static void pending_actions_set(RoomAction *actions, size_t count, size_t next) {
@@ -69,6 +100,10 @@ static void condition_remove(RoomCondition *condition) {
 static RoomAction action_add(const char *command, const char *argument) {
 	RoomAction action = {0};
 
+	if (strcmp(command, "EXIT_CHOICE") == 0) {
+		action.type = ROOM_ACTION_EXIT_CHOICE;
+		return action;
+	}
 	if (!argument) {
 		printf("Missing argument for %s\n", command);
 		return action;
@@ -94,6 +129,8 @@ static RoomAction action_add(const char *command, const char *argument) {
 		action.type = ROOM_ACTION_TIMELINE;
 	} else if (strcmp(command, "MINIGAME") == 0) {
 		action.type = ROOM_ACTION_MINIGAME;
+	} else if (strcmp(command, "CHOICE") == 0) {
+		action.type = ROOM_ACTION_CHOICE;
 	} else {
 		printf("Unknown action: %s\n", command);
 		return action;
@@ -159,7 +196,7 @@ static Path *get_path(Room *room, const char *direction) {
 // stops the load and returns false; room_init() then frees the room.
 static bool load_room(const char *filename) {
 	if (!room) {
-		return NULL;
+		return false;
 	}
 
 	FILE *f = fopen(filename, "r");
@@ -479,7 +516,7 @@ static bool load_room(const char *filename) {
 
 			RoomAction action = action_add(command, argument);
 
-			if (!action.argument) {
+			if (!action.argument && action.type != ROOM_ACTION_EXIT_CHOICE) {
 				printf("%s:%zu: invalid action\n", filename, line_number);
 				fclose(f);
 				return false;
@@ -537,9 +574,305 @@ static bool load_room(const char *filename) {
 	return true;
 }
 
+// The CHOICE block of file called name, or NULL.
+static Choice *choice_find(ChoiceFile *file, const char *name) {
+	for (size_t i = 0; i < file->choice_count; i++) {
+		if (strcmp(file->choices[i].name, name) == 0) {
+			return &file->choices[i];
+		}
+	}
+	return NULL;
+}
+
+// Parse a choice file into `choices` (allocated by the caller). Same lexical
+// rules as a room script. At file level, CHOICE <name> opens a block; inside
+// an OPTION, CHOICE <name> is an action opening another block of this file.
+// Fails on any syntax error, when MAIN is missing, or when a nested CHOICE
+// names a block that does not exist. On failure, the caller frees `choices`.
+static bool load_choice(const char *filename) {
+	if (!choices) {
+		return false;
+	}
+	FILE *f = fopen(filename, "r");
+	if (!f) {
+		printf("Cannot open choice file: %s\n", filename);
+		return false;
+	}
+
+	char line[512];
+	size_t line_number = 0;
+	Choice *choice = NULL;
+	ChoiceOption *option = NULL;
+
+	while (fgets(line, sizeof(line), f)) {
+		line_number++;
+		char *p = str_trim(line);
+		if (!*p || *p == '#') {
+			continue;
+		}
+
+		char *command = strtok(p, " ");
+		char *argument = strtok(NULL, " ");
+		if (!command) {
+			continue;
+		}
+
+		// At file level, CHOICE declares a block; inside OPTION, it is an action.
+		if (strcmp(command, "CHOICE") == 0 && !option) {
+			if (choice || !argument || choices->choice_count >= CHOICE_MAX_CHOICES) {
+				printf("%s:%zu: invalid CHOICE declaration\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			if (choice_find(choices, argument)) {
+				printf("%s:%zu: duplicate CHOICE\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			choice = &choices->choices[choices->choice_count++];
+			choice->name = strdup(argument);
+			continue;
+		}
+
+		if (strcmp(command, "END_CHOICE") == 0) {
+			if (!choice || option || !choice->prompt || !choice->option_count) {
+				printf("%s:%zu: invalid END_CHOICE\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			choice = NULL;
+			continue;
+		}
+
+		if (strcmp(command, "PROMPT") == 0) {
+			if (!choice || option || !argument || choice->prompt) {
+				printf("%s:%zu: invalid PROMPT\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			choice->prompt = strdup(argument);
+			continue;
+		}
+
+		if (strcmp(command, "OPTION") == 0) {
+			if (!choice || option || !argument || choice->option_count >= CHOICE_MAX_OPTIONS) {
+				printf("%s:%zu: invalid OPTION\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			for (size_t i = 0; i < choice->option_count; i++) {
+				if (strcmp(choice->options[i].name, argument) == 0) {
+					printf("%s:%zu: duplicate OPTION\n", filename, line_number);
+					fclose(f);
+					return false;
+				}
+			}
+			option = &choice->options[choice->option_count++];
+			option->name = strdup(argument);
+			continue;
+		}
+
+		if (strcmp(command, "END_OPTION") == 0) {
+			if (!option) {
+				printf("%s:%zu: END_OPTION without OPTION\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			option = NULL;
+			continue;
+		}
+
+		if (strcmp(command, "WHEN") == 0) {
+			char *name = strtok(NULL, " ");
+			char *value = strtok(NULL, " ");
+			if (!option || !argument || !name || !value || option->block.condition_count >= ROOM_MAX_CONDITIONS) {
+				printf("%s:%zu: invalid WHEN\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			RoomCondition condition = condition_add(argument, name, value);
+			if (!condition.name) {
+				printf("%s:%zu: unknown WHEN condition\n", filename, line_number);
+				fclose(f);
+				return false;
+			}
+			option->block.conditions[option->block.condition_count++] = condition;
+			continue;
+		}
+
+		if (!option) {
+			printf("%s:%zu: action outside OPTION\n", filename, line_number);
+			fclose(f);
+			return false;
+		}
+
+		RoomAction action = action_add(command, argument);
+		if (!action.argument && action.type != ROOM_ACTION_EXIT_CHOICE) {
+			printf("%s:%zu: invalid action\n", filename, line_number);
+			fclose(f);
+			return false;
+		}
+		if (action.type == ROOM_ACTION_MESSAGE_IMAGE) {
+			action.image = gfxmap_get_image(&room->assets, action.argument);
+			if (!action.image.tex) {
+				printf("%s:%zu: unknown MESSAGE_IMAGE image: %s\n", filename, line_number, action.argument);
+				action_remove(&action);
+				fclose(f);
+				return false;
+			}
+		}
+		if (action.type == ROOM_ACTION_MINIGAME && !callbacks_minigame_find(action.argument)) {
+			printf("%s:%zu: invalid MINIGAME: %s\n", filename, line_number, action.argument);
+			action_remove(&action);
+			fclose(f);
+			return false;
+		}
+		if (option->block.action_count >= ROOM_MAX_ACTIONS) {
+			printf("%s:%zu: too many ACTION\n", filename, line_number);
+			action_remove(&action);
+			fclose(f);
+			return false;
+		}
+		option->block.actions[option->block.action_count++] = action;
+	}
+
+	if (choice || option) {
+		printf("%s:%zu: unclosed CHOICE or OPTION\n", filename, line_number);
+		fclose(f);
+		return false;
+	}
+	if (!choice_find(choices, "MAIN")) {
+		printf("%s:%zu: missing CHOICE MAIN\n", filename, line_number);
+		fclose(f);
+		return false;
+	}
+
+	// Nested CHOICE directives refer to another block in this same file.
+	for (size_t i = 0; i < choices->choice_count; i++) {
+		Choice *current = &choices->choices[i];
+		for (size_t j = 0; j < current->option_count; j++) {
+			RoomActionBlock *block = &current->options[j].block;
+			for (size_t k = 0; k < block->action_count; k++) {
+				RoomAction *action = &block->actions[k];
+				if (action->type == ROOM_ACTION_CHOICE && !choice_find(choices, action->argument)) {
+					printf("%s: invalid nested CHOICE: %s\n", filename, action->argument);
+					fclose(f);
+					return false;
+				}
+			}
+		}
+	}
+
+	fclose(f);
+	return true;
+}
+
+// Free a choice file and everything its blocks own. Accepts NULL and a
+// partially loaded file.
+static void choice_file_free(ChoiceFile *file) {
+	if (!file) {
+		return;
+	}
+	for (size_t i = 0; i < file->choice_count; i++) {
+		Choice *choice = &file->choices[i];
+		free(choice->name);
+		free(choice->prompt);
+		for (size_t j = 0; j < choice->option_count; j++) {
+			free(choice->options[j].name);
+			action_block_remove(&choice->options[j].block);
+		}
+	}
+	free(file);
+}
+
+// Hide the choice, forget every open level and free the choice file. Safe
+// when no choice is open.
+static void choice_close(void) {
+	game_show_choice(NULL);
+	choice_depth = 0;
+	choice_file_free(choices);
+	choices = NULL;
+}
+
+// Load romfs:/rooms/<room>/<name> as the open choice file. Returns false if
+// a file is already open or it cannot be loaded.
+static bool choice_init(const char *name) {
+	if (choices) {
+		return false;
+	}
+
+	choices = calloc(1, sizeof(*choices));
+	if (!choices) {
+		return false;
+	}
+
+	char filename[512];
+	snprintf(filename, sizeof(filename), "%s/%s", room->path, name);
+	if (!load_choice(filename)) {
+		choice_close();
+		return false;
+	}
+	return true;
+}
+
+// Leave the innermost choice: show its parent again (or close the file when
+// it was the outermost one), then resume the actions that followed the
+// CHOICE action that opened it.
+static void choice_pop(void) {
+	if (!choice_depth) {
+		return;
+	}
+
+	ChoiceFrame frame = choice_stack[--choice_depth];
+
+	if (choice_depth) {
+		game_show_choice(choice_stack[choice_depth - 1].choice);
+	} else {
+		choice_close();
+	}
+	execute_actions(frame.actions, frame.count, frame.next);
+}
+
+void room_choice_exit(void) {
+	choice_pop();
+}
+
+// Open a choice and show it; actions[next..count) resumes when it is left.
+// From a room (no choice open), name is a choice file and its MAIN block is
+// shown; from an option, name is another block of the open file. Returns
+// false, so that the caller goes on with the next action, when the file
+// cannot be loaded or the stack is full.
+static bool choice_push(const char *name, RoomAction *actions, size_t count, size_t next) {
+	bool root = choice_depth == 0;
+
+	if (root) {
+		if (!choice_init(name)) {
+			return false;
+		}
+	}
+
+	Choice *choice = choice_find(choices, root ? "MAIN" : name);
+	if (!choice || choice_depth >= CHOICE_MAX_DEPTH) {
+		if (root) {
+			choice_close();
+		}
+		return false;
+	}
+
+	choice_stack[choice_depth++] = (ChoiceFrame){
+		.choice = choice,
+		.actions = actions,
+		.count = count,
+		.next = next,
+	};
+	game_show_choice(choice);
+	return true;
+}
+
 // Run actions[start..count). Returns true when the action flow ended early:
-// a mode-changing action (ROOM, MINIGAME), or a MESSAGE, MESSAGE_IMAGE,
-// WAIT_SFX or TIMELINE that will resume later through continue_actions().
+// a mode-changing action (ROOM, MINIGAME), a MESSAGE, MESSAGE_IMAGE,
+// WAIT_SFX or TIMELINE that will resume later through continue_actions(),
+// or a CHOICE / EXIT_CHOICE that hands the flow over to the choice stack.
 // Callers must then stop running further blocks, since the game mode (and
 // possibly the room) has changed.
 static bool execute_actions(RoomAction *actions, size_t count, size_t start) {
@@ -598,15 +931,28 @@ static bool execute_actions(RoomAction *actions, size_t count, size_t start) {
 		case ROOM_ACTION_MINIGAME:
 			game_minigame_start(action->argument);
 			return true;
+		case ROOM_ACTION_CHOICE:
+			// If the choice cannot be opened (logged), go on with the next action.
+			if (choice_push(action->argument, actions, count, c + 1)) {
+				return true;
+			}
+			break;
+		// With no choice open (e.g. in a room script), EXIT_CHOICE does nothing.
+		case ROOM_ACTION_EXIT_CHOICE:
+			if (choice_depth) {
+				choice_pop();
+				return true;
+			}
+			break;
 		}
 	}
 	return false;
 }
 
 // True if every condition matches (an empty list always matches).
-static bool match_conditions(RoomCondition *conditions, size_t count) {
+static bool match_conditions(const RoomCondition *conditions, size_t count) {
 	for (size_t c = 0; c < count; c++) {
-		RoomCondition *condition = &conditions[c];
+		const RoomCondition *condition = &conditions[c];
 		bool value;
 		if (condition->type == ROOM_CONDITION_STATE_IS) {
 			value = gamestate_get(condition->name);
@@ -650,6 +996,28 @@ static void continue_actions(void) {
 	if (room && actions) {
 		execute_actions(actions, count, next);
 	}
+}
+
+bool room_choice_option_is_available(const ChoiceOption *option) {
+	if (!choice_depth) {
+		return false;
+	}
+	return match_conditions(option->block.conditions, option->block.condition_count);
+}
+
+void room_choice_select(size_t index) {
+	if (!choice_depth) {
+		return;
+	}
+	Choice *choice = choice_stack[choice_depth - 1].choice;
+	if (index >= choice->option_count) {
+		return;
+	}
+	ChoiceOption *option = &choice->options[index];
+	if (!room_choice_option_is_available(option)) {
+		return;
+	}
+	execute_actions(option->block.actions, option->block.action_count, 0);
 }
 
 // A path is usable if it was declared in the script and its conditions match.
@@ -860,8 +1228,10 @@ void room_close(void) {
 		return;
 	}
 
-	// A suspended block points into this room's memory.
+	// A suspended block points into this room's memory or its choice file;
+	// an open choice is dropped with its file.
 	pending_actions_set(NULL, 0, 0);
+	choice_close();
 	for (size_t i = 0; i < room->image_count; i++) {
 		RoomImage *image = &room->images[i];
 		for (size_t j = 0; j < image->condition_count; j++) {

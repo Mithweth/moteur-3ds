@@ -138,7 +138,7 @@ ROMFS_MINIGAME_RAW_FILES 	:= $(patsubst $(ASSETS)/%,$(ROMFS)/%,$(MINIGAME_RAW_FI
 # Rooms
 #---------------------------------------------------------------------------------
 
-ROOM_SRC_FILES				:= $(wildcard $(ROOMS)/*/room)
+ROOM_SRC_FILES 				:= $(foreach f,$(wildcard $(ROOMS)/*/*),$(if $(suffix $(f)),,$(f)))
 ROMFS_ROOM_FILES			:= $(patsubst $(ASSETS)/%,$(ROMFS)/%,$(ROOM_SRC_FILES))
 
 ROOM_RAW_FILES 				:= $(shell if [ -d "$(ROOMS)" ]; then find "$(ROOMS)" -type f -name '*.raw'; fi)

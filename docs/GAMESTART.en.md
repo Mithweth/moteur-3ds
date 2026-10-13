@@ -2,8 +2,8 @@
 
 This document describes the `game` file, which defines how a new game
 starts (the first room, the background music and the items already in the
-inventory), where the game is saved, and the colors of the message box and
-of the Start menu.
+inventory), where the game is saved, and the look of the message box, of
+the choice box and of the Start menu.
 
 ## 1. Location and loading
 
@@ -35,7 +35,7 @@ title screen ("New game"):
 When the player chooses "Continue", only steps 1 and 2 apply: the
 inventory and the room come from the save, not from `ITEM` and `ROOM`.
 
-The colors and the text size apply for the whole game.
+The colors and the text sizes apply for the whole game.
 
 ## 2. General syntax
 
@@ -75,16 +75,19 @@ Example: `150 120 55 255` is an opaque gold.
 | `ROOM`         | yes      | no         | Room in which a new game starts.                    |
 | `MUSIC`        | no       | no         | Background music played during the game.            |
 | `ITEM`         | no       | yes (16)   | Item already in the inventory when the game starts. |
-| `TEXT_COLOR`   | no       | —          | Text color of the message box and of the menu.      |
-| `TEXT_SIZE`    | no       | —          | Text size of the Start menu buttons.                |
-| `BUTTON_COLOR` | no       | —          | Background of the selected Start menu button.       |
-| `FRAME_COLORS` | yes      | no         | Frame colors block (see 3.7).                       |
-| `SAVE`         | no       | —          | Save file; enables saving (see 3.8).                |
-| `CANNOT_USE_MESSAGE` | no | no         | Message when an item cannot be used (see 3.9).      |
+| `MESSAGE`      | no       | —          | Message box text block (see 3.4).                   |
+| `CHOICE`       | no       | —          | Choice box and Start menu block (see 3.5).          |
+| `FRAME_COLORS` | yes      | no         | Frame colors block (see 3.6).                       |
+| `SAVE`         | no       | —          | Save file; enables saving (see 3.7).                |
+| `CANNOT_USE_MESSAGE` | no | no         | Message when an item cannot be used (see 3.8).      |
 
 `ROOM`, `MUSIC` and `CANNOT_USE_MESSAGE` may appear only once: a second occurrence makes loading
-fail. For the color commands, `TEXT_SIZE` and `SAVE`, if a command is
-repeated, the last value wins.
+fail. For `SAVE` and the commands inside the `MESSAGE` and `CHOICE`
+blocks, if a command is repeated, the last value wins; these two blocks
+may appear several times.
+
+Decimal numbers (sizes, widths) are written with a dot (`0.6`, not
+`0,6`). For text sizes, `1.0` is the normal font size.
 
 ### 3.1. ROOM
 
@@ -143,36 +146,60 @@ order.
 - An item listed twice is only added once.
 - Without `ITEM`, the inventory starts empty.
 
-### 3.4. TEXT_COLOR
+### 3.4. MESSAGE ... END_MESSAGE
 
 ```text
-TEXT_COLOR 255 255 255 255
+MESSAGE
+    TEXT_COLOR 255 255 255 255
+    TEXT_SIZE 0.5
+END_MESSAGE
 ```
 
-Text color of the message box and of the Start menu buttons (see 2.1).
-Default: opaque white, `255 255 255 255`.
+Text of the message box (messages of the rooms, of the items and of the
+extensions).
 
-### 3.5. TEXT_SIZE
+| Command            | Value          | Default           | Description                |
+|--------------------|----------------|-------------------|----------------------------|
+| `TEXT_COLOR`       | color (2.1)    | `255 255 255 255` | text color                 |
+| `TEXT_SIZE`        | decimal number | `0.6`             | text scale                 |
+
+The text is wrapped to the width of the box at that size. The box grows
+with the number of lines: with a large size, keep the messages short.
+
+### 3.5. CHOICE ... END_CHOICE
 
 ```text
-TEXT_SIZE 0.6
+CHOICE
+    FRAME_WIDTH 260
+    PROMPT_TEXT_COLOR 255 255 255 255
+    PROMPT_TEXT_SIZE 0.5
+    BUTTON_TEXT_COLOR 255 255 255 255
+    BUTTON_TEXT_SIZE 0.5
+    BUTTON_COLOR 105 82 40 255
+    BUTTON_PADDING 5
+END_CHOICE
 ```
 
-Text scale of the Start menu buttons, as a decimal number with a dot
-(`0.6`, not `0,6`). `1.0` is the normal font size. Default: `0.6`.
+Look of the box shown by the `CHOICE` room action (see
+`CHOICES.en.md`) and of the Start menu, which uses the same box. The box
+is centered on the bottom screen: the question at the top, then one
+button per option.
 
-The text size of the message box is not affected.
+| Command             | Value          | Default           | Description                                         |
+|---------------------|----------------|-------------------|-----------------------------------------------------|
+| `FRAME_WIDTH`       | pixels         | `276`             | width of the box (the screen is 320 pixels wide)    |
+| `PROMPT_TEXT_COLOR` | color (2.1)    | `255 255 255 255` | color of the question                               |
+| `PROMPT_TEXT_SIZE`  | decimal number | `0.6`             | scale of the question, wrapped to the box width     |
+| `BUTTON_TEXT_COLOR` | color (2.1)    | `255 255 255 255` | color of the button labels                          |
+| `BUTTON_TEXT_SIZE`  | decimal number | `0.6`             | scale of the button labels (not wrapped)            |
+| `BUTTON_COLOR`      | color (2.1)    | `105 82 40 255`   | rectangle behind the selected button                |
+| `BUTTON_PADDING`    | pixels         | `5`               | margin around a label, which also spaces the buttons |
 
-### 3.6. BUTTON_COLOR
+The height of the box follows from the question and the number of
+buttons: with large sizes, a choice with many options may not fit on the
+240 pixels of the screen.
 
-```text
-BUTTON_COLOR 105 82 40 255
-```
-
-Color of the rectangle drawn behind the selected Start menu button (see
-2.1). Default: `105 82 40 255`.
-
-### 3.7. FRAME_COLORS ... END_FRAME_COLORS
+### 3.6. FRAME_COLORS ... END_FRAME_COLORS
 
 ```text
 FRAME_COLORS
@@ -184,7 +211,8 @@ FRAME_COLORS
 END_FRAME_COLORS
 ```
 
-Colors of the frame of the message box and of the Start menu. The frame is
+Colors of the frame of the message box, of the choice box and of the
+Start menu. The frame is
 drawn in five layers, from the outside in:
 
 | Command            | Layer                                                 |
@@ -201,7 +229,7 @@ drawn in five layers, from the outside in:
   not drawn.
 - The block is required and must be closed by `END_FRAME_COLORS`
 
-### 3.8. SAVE
+### 3.7. SAVE
 
 ```text
 SAVE sdmc:/moteur.save
@@ -225,13 +253,13 @@ With it:
 - "Save" in the Start menu writes the elapsed time, the current room, the
   inventory, the game states that are true and the data of the
   extensions. It is only offered while the player explores a room, not
-  during a message, a mini-game or a timeline.
+  during a message, a choice, a mini-game or a timeline.
 - The save is written to `<path>.tmp` first, then renamed: a failed or
   interrupted save keeps the previous one.
 - `CONTINUE` on the title screen loads it (see the title screen
   documentation); "New game" deletes it.
 
-### 3.9. CANNOT_USE_MESSAGE
+### 3.8. CANNOT_USE_MESSAGE
 
 ```text
 CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
@@ -270,10 +298,22 @@ SAVE sdmc:/moteur.save
 # Feedback when an item is used in the wrong place
 CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
 
-# Message box and Start menu
-TEXT_COLOR 255 255 255 255
-TEXT_SIZE 0.6
-BUTTON_COLOR 105 82 40 255
+# Message box
+MESSAGE
+    TEXT_COLOR 255 255 255 255
+    TEXT_SIZE 0.5
+END_MESSAGE
+
+# Choice box and Start menu
+CHOICE
+    FRAME_WIDTH 260
+    PROMPT_TEXT_COLOR 255 255 255 255
+    PROMPT_TEXT_SIZE 0.5
+    BUTTON_TEXT_COLOR 255 255 255 255
+    BUTTON_TEXT_SIZE 0.5
+    BUTTON_COLOR 105 82 40 255
+    BUTTON_PADDING 5
+END_CHOICE
 
 FRAME_COLORS
     SHADOW 0 0 0 150
@@ -286,17 +326,33 @@ END_FRAME_COLORS
 
 ## 5. Common mistakes
 
-### Forgetting `END_FRAME_COLORS`
+### Forgetting `END_FRAME_COLORS`, `END_MESSAGE` or `END_CHOICE`
 
-As long as the block is not closed, only the frame color commands are
-accepted: a `ROOM` or `MUSIC` line placed after it makes loading fail
-with `unknown command`. If the block is the last one in the file, loading
-fails with `missing END_FRAME_COLORS`.
+As long as a block is not closed, only its own commands are accepted: a
+`ROOM` or `MUSIC` line placed after it makes loading fail with
+`unknown command`. If the block is the last one in the file, loading
+fails with `missing END_FRAME_COLORS`, `missing END_MESSAGE` or
+`missing END_CHOICE`.
+
+### Using the old style commands outside a block
+
+```text
+TEXT_COLOR 255 255 255 255
+TEXT_SIZE 0.6
+BUTTON_COLOR 105 82 40 255
+```
+
+These commands are no longer accepted at file level and make loading
+fail with `unknown command`. Move `TEXT_COLOR` and `TEXT_SIZE` into the
+`MESSAGE` block, and `BUTTON_COLOR` into the `CHOICE` block, where
+`BUTTON_TEXT_COLOR` and `BUTTON_TEXT_SIZE` set the Start menu buttons.
 
 ### Giving a color name
 
 ```text
-TEXT_COLOR WHITE
+MESSAGE
+    TEXT_COLOR WHITE
+END_MESSAGE
 ```
 
 Unlike the title screen file, this file does not accept color names: give
@@ -305,7 +361,9 @@ the four `R G B A` values.
 ### Forgetting the opacity
 
 ```text
-TEXT_COLOR 255 255 255
+MESSAGE
+    TEXT_COLOR 255 255 255
+END_MESSAGE
 ```
 
 The opacity is required: without it, loading fails with

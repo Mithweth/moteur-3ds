@@ -2,8 +2,8 @@
 
 Ce document décrit le fichier `game`, qui définit comment démarre une
 nouvelle partie (la première salle, la musique de fond et les objets déjà
-présents dans l'inventaire), l'emplacement de la sauvegarde, ainsi que les
-couleurs de la boîte de message et du menu Start.
+présents dans l'inventaire), l'emplacement de la sauvegarde, ainsi que
+l'apparence de la boîte de message, de la boîte de choix et du menu Start.
 
 ## 1. Emplacement et chargement
 
@@ -36,7 +36,7 @@ Quand le joueur choisit « Continuer », seules les étapes 1 et 2
 s'appliquent : l'inventaire et la salle viennent de la sauvegarde, pas de
 `ITEM` ni de `ROOM`.
 
-Les couleurs et la taille du texte s'appliquent pendant toute la partie.
+Les couleurs et les tailles du texte s'appliquent pendant toute la partie.
 
 ## 2. Syntaxe générale
 
@@ -78,17 +78,21 @@ Exemple : `150 120 55 255` est un doré opaque.
 | `ROOM`           | oui         | non       | Salle dans laquelle démarre une nouvelle partie.      |
 | `MUSIC`          | non         | non       | Musique de fond jouée pendant la partie.              |
 | `ITEM`           | non         | oui (16)  | Objet déjà dans l'inventaire au début de la partie.   |
-| `TEXT_COLOR`     | non         | —         | Couleur du texte de la boîte de message et du menu.   |
-| `TEXT_SIZE`      | non         | —         | Taille du texte des boutons du menu Start.            |
-| `BUTTON_COLOR`   | non         | —         | Fond du bouton sélectionné dans le menu Start.        |
-| `FRAME_COLORS`   | oui         | non       | Bloc des couleurs du cadre (voir 3.7).                |
-| `SAVE`           | non         | —         | Fichier de sauvegarde ; active la sauvegarde (voir 3.8). |
-| `CANNOT_USE_MESSAGE` | non     | non       | Message quand un objet ne peut pas être utilisé (voir 3.9). |
+| `MESSAGE`        | non         | —         | Bloc du texte de la boîte de message (voir 3.4).      |
+| `CHOICE`         | non         | —         | Bloc de la boîte de choix et du menu Start (voir 3.5). |
+| `FRAME_COLORS`   | oui         | non       | Bloc des couleurs du cadre (voir 3.6).                |
+| `SAVE`           | non         | —         | Fichier de sauvegarde ; active la sauvegarde (voir 3.7). |
+| `CANNOT_USE_MESSAGE` | non     | non       | Message quand un objet ne peut pas être utilisé (voir 3.8). |
 
 `ROOM`, `MUSIC` et `CANNOT_USE_MESSAGE` ne peuvent apparaître qu'une seule fois : une seconde
-occurrence fait échouer le chargement. Pour les commandes de couleur,
-`TEXT_SIZE` et `SAVE`, si une commande est répétée, c'est la dernière
-valeur qui compte.
+occurrence fait échouer le chargement. Pour `SAVE` et les commandes des
+blocs `MESSAGE` et `CHOICE`, si une commande est répétée, c'est la
+dernière valeur qui compte ; ces deux blocs peuvent apparaître plusieurs
+fois.
+
+Les nombres décimaux (tailles, largeurs) s'écrivent avec un point (`0.6`,
+pas `0,6`). Pour les tailles de texte, `1.0` correspond à la taille
+normale de la police.
 
 ### 3.1. ROOM
 
@@ -147,37 +151,61 @@ l'inventaire dans l'ordre du fichier.
 - Un objet listé deux fois n'est ajouté qu'une seule fois.
 - Sans `ITEM`, l'inventaire démarre vide.
 
-### 3.4. TEXT_COLOR
+### 3.4. MESSAGE ... END_MESSAGE
 
 ```text
-TEXT_COLOR 255 255 255 255
+MESSAGE
+    TEXT_COLOR 255 255 255 255
+    TEXT_SIZE 0.5
+END_MESSAGE
 ```
 
-Couleur du texte de la boîte de message et des boutons du menu Start
-(voir 2.1). Par défaut : blanc opaque, `255 255 255 255`.
+Texte de la boîte de message (messages des salles, des objets et des
+extensions).
 
-### 3.5. TEXT_SIZE
+| Commande           | Valeur          | Défaut            | Description                |
+|--------------------|-----------------|-------------------|----------------------------|
+| `TEXT_COLOR`       | couleur (2.1)   | `255 255 255 255` | couleur du texte           |
+| `TEXT_SIZE`        | nombre décimal  | `0.6`             | échelle du texte           |
+
+Le texte est découpé en lignes selon la largeur de la boîte à cette
+taille. La boîte grandit avec le nombre de lignes : avec une grande
+taille, gardez les messages courts.
+
+### 3.5. CHOICE ... END_CHOICE
 
 ```text
-TEXT_SIZE 0.6
+CHOICE
+    FRAME_WIDTH 260
+    PROMPT_TEXT_COLOR 255 255 255 255
+    PROMPT_TEXT_SIZE 0.5
+    BUTTON_TEXT_COLOR 255 255 255 255
+    BUTTON_TEXT_SIZE 0.5
+    BUTTON_COLOR 105 82 40 255
+    BUTTON_PADDING 5
+END_CHOICE
 ```
 
-Échelle du texte des boutons du menu Start, en nombre décimal avec un
-point (`0.6`, pas `0,6`). `1.0` correspond à la taille normale de la
-police. Par défaut : `0.6`.
+Apparence de la boîte affichée par l'action de salle `CHOICE` (voir
+`CHOICES.fr.md`) et du menu Start, qui utilise la même boîte. La boîte
+est centrée sur l'écran du bas : la question en haut, puis un bouton par
+option.
 
-La taille du texte de la boîte de message n'est pas concernée.
+| Commande            | Valeur          | Défaut            | Description                                          |
+|---------------------|-----------------|-------------------|------------------------------------------------------|
+| `FRAME_WIDTH`       | pixels          | `276`             | largeur de la boîte (l'écran fait 320 pixels de large) |
+| `PROMPT_TEXT_COLOR` | couleur (2.1)   | `255 255 255 255` | couleur de la question                               |
+| `PROMPT_TEXT_SIZE`  | nombre décimal  | `0.6`             | échelle de la question, découpée selon la largeur de la boîte |
+| `BUTTON_TEXT_COLOR` | couleur (2.1)   | `255 255 255 255` | couleur des libellés des boutons                     |
+| `BUTTON_TEXT_SIZE`  | nombre décimal  | `0.6`             | échelle des libellés des boutons (non découpés)      |
+| `BUTTON_COLOR`      | couleur (2.1)   | `105 82 40 255`   | rectangle derrière le bouton sélectionné             |
+| `BUTTON_PADDING`    | pixels          | `5`               | marge autour d'un libellé, qui espace aussi les boutons |
 
-### 3.6. BUTTON_COLOR
+La hauteur de la boîte dépend de la question et du nombre de boutons :
+avec de grandes tailles, un choix comportant beaucoup d'options peut ne
+pas tenir dans les 240 pixels de l'écran.
 
-```text
-BUTTON_COLOR 105 82 40 255
-```
-
-Couleur du rectangle affiché derrière le bouton sélectionné du menu Start
-(voir 2.1). Par défaut : `105 82 40 255`.
-
-### 3.7. FRAME_COLORS ... END_FRAME_COLORS
+### 3.6. FRAME_COLORS ... END_FRAME_COLORS
 
 ```text
 FRAME_COLORS
@@ -189,8 +217,9 @@ FRAME_COLORS
 END_FRAME_COLORS
 ```
 
-Couleurs du cadre de la boîte de message et du menu Start. Le cadre est
-dessiné en cinq couches, de l'extérieur vers l'intérieur :
+Couleurs du cadre de la boîte de message, de la boîte de choix et du menu
+Start. Le cadre est dessiné en cinq couches, de l'extérieur vers
+l'intérieur :
 
 | Commande           | Couche                                                   |
 |--------------------|----------------------------------------------------------|
@@ -206,7 +235,7 @@ dessiné en cinq couches, de l'extérieur vers l'intérieur :
   n'est pas dessinée.
 - Le bloc est obligatoire et doit être fermé par `END_FRAME_COLORS`
 
-### 3.8. SAVE
+### 3.7. SAVE
 
 ```text
 SAVE sdmc:/moteur.save
@@ -232,14 +261,14 @@ Avec elle :
 - « Sauvegarder » dans le menu Start enregistre le temps écoulé, la salle
   courante, l'inventaire, les états de jeu vrais et les données des
   extensions. Ce bouton n'est proposé que lorsque le joueur explore une
-  salle, pas pendant un message, un mini-jeu ou une timeline.
+  salle, pas pendant un message, un choix, un mini-jeu ou une timeline.
 - La sauvegarde est d'abord écrite dans `<chemin>.tmp`, puis renommée :
   une sauvegarde qui échoue ou qui est interrompue conserve la
   précédente.
 - `CONTINUE` sur l'écran titre la charge (voir la documentation de
   l'écran titre) ; « Nouvelle partie » la supprime.
 
-### 3.9. CANNOT_USE_MESSAGE
+### 3.8. CANNOT_USE_MESSAGE
 
 ```text
 CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
@@ -277,10 +306,22 @@ SAVE sdmc:/moteur.save
 # Retour quand un objet est utilisé au mauvais endroit
 CANNOT_USE_MESSAGE GAME_CANNOT_USE_MESSAGE
 
-# Boîte de message et menu Start
-TEXT_COLOR 255 255 255 255
-TEXT_SIZE 0.6
-BUTTON_COLOR 105 82 40 255
+# Boîte de message
+MESSAGE
+    TEXT_COLOR 255 255 255 255
+    TEXT_SIZE 0.5
+END_MESSAGE
+
+# Boîte de choix et menu Start
+CHOICE
+    FRAME_WIDTH 260
+    PROMPT_TEXT_COLOR 255 255 255 255
+    PROMPT_TEXT_SIZE 0.5
+    BUTTON_TEXT_COLOR 255 255 255 255
+    BUTTON_TEXT_SIZE 0.5
+    BUTTON_COLOR 105 82 40 255
+    BUTTON_PADDING 5
+END_CHOICE
 
 FRAME_COLORS
     SHADOW 0 0 0 150
@@ -293,17 +334,34 @@ END_FRAME_COLORS
 
 ## 5. Erreurs fréquentes
 
-### Oublier `END_FRAME_COLORS`
+### Oublier `END_FRAME_COLORS`, `END_MESSAGE` ou `END_CHOICE`
 
-Tant que le bloc n'est pas fermé, seules les commandes de couleur du cadre
-sont acceptées : une ligne `ROOM` ou `MUSIC` placée après fait échouer le
+Tant qu'un bloc n'est pas fermé, seules ses propres commandes sont
+acceptées : une ligne `ROOM` ou `MUSIC` placée après fait échouer le
 chargement avec `unknown command`. Si le bloc est le dernier du fichier,
-le chargement échoue avec `missing END_FRAME_COLORS`.
+le chargement échoue avec `missing END_FRAME_COLORS`,
+`missing END_MESSAGE` ou `missing END_CHOICE`.
+
+### Utiliser les anciennes commandes de style hors d'un bloc
+
+```text
+TEXT_COLOR 255 255 255 255
+TEXT_SIZE 0.6
+BUTTON_COLOR 105 82 40 255
+```
+
+Ces commandes ne sont plus acceptées au niveau du fichier et font échouer
+le chargement avec `unknown command`. Déplacez `TEXT_COLOR` et
+`TEXT_SIZE` dans le bloc `MESSAGE`, et `BUTTON_COLOR` dans le bloc
+`CHOICE`, où `BUTTON_TEXT_COLOR` et `BUTTON_TEXT_SIZE` règlent les
+boutons du menu Start.
 
 ### Donner un nom de couleur
 
 ```text
-TEXT_COLOR WHITE
+MESSAGE
+    TEXT_COLOR WHITE
+END_MESSAGE
 ```
 
 Contrairement au fichier de l'écran titre, ce fichier n'accepte pas les
@@ -312,7 +370,9 @@ noms de couleurs : donnez les quatre valeurs `R V B A`.
 ### Oublier l'opacité
 
 ```text
-TEXT_COLOR 255 255 255
+MESSAGE
+    TEXT_COLOR 255 255 255
+END_MESSAGE
 ```
 
 L'opacité est obligatoire : sans elle, le chargement échoue avec

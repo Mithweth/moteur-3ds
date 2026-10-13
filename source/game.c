@@ -3,6 +3,14 @@
 // movement, touch on hotspots, inventory keys), the message box, and the
 // glue used by room actions and extensions to change mode. See game.h for the
 // public API.
+// Implementation notes: the START menu and the choices opened by CHOICE
+// actions share one overlay, drawn on the bottom screen over the current mode
+// and fed by the same code (start_choice is a static Choice whose options are
+// handled here instead of by room.c). Only one overlay is shown at a time:
+// opening the START menu puts the current choice and its selection aside in
+// pending_choice, closing it brings them back. The START menu works in every
+// mode and pauses it (hud_update is skipped, then timer_resume); a room choice
+// only takes the input in GAME_NORMAL and lets the countdown run.
 #include <3ds.h>
 #include <math.h>
 #include <stdio.h>
@@ -22,12 +30,10 @@
 #include "text_render.h"
 #include "save.h"
 
-#define GAME_CALLBACK_MAX     8
+#define GAME_CALLBACK_MAX     16
 #define GAME_CONFIG_MAX_ITEMS 16
-#define START_BOX_WIDTH      260.0f
-#define START_BOX_HEIGHT     110.0f
-#define START_BUTTON_SPACING  30.0f
-#define START_BUTTON_PADDING   5.0f
+// Height of a line of text at scale 1.0, used to space the choice buttons.
+#define FONT_HEIGHT           30.0f
 
 typedef struct {
 	u32 shadow;
@@ -37,6 +43,23 @@ typedef struct {
 	u32 inner_background;
 } FrameStyle;
 
+// CHOICE block of the game file: look of the choice box and START menu.
+typedef struct {
+	u32 button_color;
+	u32 button_text_color;
+	u32 prompt_text_color;
+	float button_text_size;
+	float prompt_text_size;
+	float frame_width;
+	float button_padding;
+} ChoiceStyle;
+
+// MESSAGE block of the game file: text of the message box.
+typedef struct {
+	u32 text_color;
+	float text_size;
+} MessageStyle;
+
 typedef struct {
 	char *room;
 	char *music;
@@ -44,9 +67,8 @@ typedef struct {
 	char *cannot_use_message;
 	size_t item_count;
 	FrameStyle frame;
-	u32 text_color;
-	float text_size;
-	u32 button_color;
+	ChoiceStyle choice;
+	MessageStyle message;
 } GameConfig;
 
 static GameConfig game_config;
@@ -72,10 +94,33 @@ static C2D_Text text;
 static void (*game_resume_callback)(void) = NULL;
 static MiniGame *active_minigame = NULL;
 static int wait_sfx_channel = -1;
-static bool start_menu;
-static size_t start_selected;
 static char current_room_name[64];
 static GameMode timeline_return_mode;
+// Center of the first button of the overlay, computed when it is drawn and
+// used to hit-test touches on the next frame.
+static float choice_first_button_y;
+
+// The START menu, shown through the same overlay as the room choices. Its
+// option indexes are used directly by game_update and choice_option_available
+// (0 back, 1 save, 2 quit).
+static Choice start_choice = {
+	.name = "START",
+	.prompt = "GAME_OPTION_TITLE",
+	.option_count = 3,
+	.options = {
+		{ .name = "GAME_OPTION_BACK" },
+		{ .name = "GAME_OPTION_SAVE" },
+		{ .name = "GAME_OPTION_QUIT" }
+	}
+};
+
+// Choice shown on the bottom screen (NULL when none) and its selected
+// option index.
+static Choice *overlay_choice = NULL;
+static size_t overlay_choice_selected = 0;
+// Room choice put aside while the START menu is open, restored when it closes.
+static Choice *pending_choice = NULL;
+static size_t pending_choice_selected = 0;
 
 
 // Parses value as "R G B A" into color. Returns false if value is NULL or
@@ -105,12 +150,20 @@ static bool game_config_load(const char *filename) {
 	}
 
 	bool frame_colors = false;
+	bool choice_block = false;
+	bool message_block = false;
 	bool has_frame_colors_block = false;
 	size_t line_number = 0;
 
-	game_config.text_color = C2D_Color32(255, 255, 255, 255);
-	game_config.button_color = C2D_Color32(105, 82, 40, 255);
-	game_config.text_size = 0.6f;
+	game_config.choice.prompt_text_color = C2D_Color32(255, 255, 255, 255);
+	game_config.message.text_color = C2D_Color32(255, 255, 255, 255);
+	game_config.choice.button_color = C2D_Color32(105, 82, 40, 255);
+	game_config.choice.button_text_color = C2D_Color32(255, 255, 255, 255);
+	game_config.message.text_size = 0.6f;
+	game_config.choice.prompt_text_size = 0.6f;
+	game_config.choice.button_text_size = 0.6f;
+	game_config.choice.frame_width = 276.0f;
+	game_config.choice.button_padding = 5.0f;
 
 	while (fgets(line, sizeof(line), file)) {
 		line_number++;
@@ -123,6 +176,78 @@ static bool game_config_load(const char *filename) {
 		char *command = strtok(p, " ");
 
 		if (!command) {
+			continue;
+		}
+		if (choice_block) {
+			bool valid;
+			if (strcmp(command, "END_CHOICE") == 0) {
+				choice_block = false;
+				continue;
+			} else if (strcmp(command, "BUTTON_TEXT_COLOR") == 0) {
+				valid = parse_color(strtok(NULL, "\n"), &game_config.choice.button_text_color);
+			} else if (strcmp(command, "BUTTON_COLOR") == 0) {
+				valid = parse_color(strtok(NULL, "\n"), &game_config.choice.button_color);
+			} else if (strcmp(command, "PROMPT_TEXT_COLOR") == 0) {
+				valid = parse_color(strtok(NULL, "\n"), &game_config.choice.prompt_text_color);
+			} else if (strcmp(command, "BUTTON_TEXT_SIZE") == 0) {
+				char *s = strtok(NULL, " ");
+				valid = (s != NULL);
+				if (valid) {
+					game_config.choice.button_text_size = atof(s);
+				}
+			} else if (strcmp(command, "PROMPT_TEXT_SIZE") == 0) {
+				char *s = strtok(NULL, " ");
+				valid = (s != NULL);
+				if (valid) {
+					game_config.choice.prompt_text_size = atof(s);
+				}
+			} else if (strcmp(command, "FRAME_WIDTH") == 0) {
+				char *s = strtok(NULL, " ");
+				valid = (s != NULL);
+				if (valid) {
+					game_config.choice.frame_width = atof(s);
+				}
+			} else if (strcmp(command, "BUTTON_PADDING") == 0) {
+				char *s = strtok(NULL, " ");
+				valid = (s != NULL);
+				if (valid) {
+					game_config.choice.button_padding = atof(s);
+				}
+			} else {
+				printf("%s:%zu: unknown command: %s\n", filename, line_number, command);
+				fclose(file);
+				return false;
+			}
+			if (!valid) {
+				printf("%s:%zu: invalid %s\n", filename, line_number, command);
+				fclose(file);
+				return false;
+			}
+			continue;
+		}
+		if (message_block) {
+			bool valid;
+			if (strcmp(command, "END_MESSAGE") == 0) {
+				message_block = false;
+				continue;
+			} else if (strcmp(command, "TEXT_COLOR") == 0) {
+				valid = parse_color(strtok(NULL, "\n"), &game_config.message.text_color);
+			} else if (strcmp(command, "TEXT_SIZE") == 0) {
+				char *s = strtok(NULL, " ");
+				valid = (s != NULL);
+				if (valid) {
+					game_config.message.text_size = atof(s);
+				}
+			} else {
+				printf("%s:%zu: unknown command: %s\n", filename, line_number, command);
+				fclose(file);
+				return false;
+			}
+			if (!valid) {
+				printf("%s:%zu: invalid %s\n", filename, line_number, command);
+				fclose(file);
+				return false;
+			}
 			continue;
 		}
 		if (frame_colors) {
@@ -166,29 +291,6 @@ static bool game_config_load(const char *filename) {
 				return false;
 			}
 			game_config.room = strdup(value);
-			continue;
-		} else if (strcmp(command, "TEXT_COLOR") == 0) {
-			if (!parse_color(strtok(NULL, "\n"), &game_config.text_color)) {
-				printf("%s:%zu: invalid %s\n", filename, line_number, command);
-				fclose(file);
-				return false;
-			}
-			continue;
-		} else if (strcmp(command, "TEXT_SIZE") == 0) {
-			char *s = strtok(NULL, " ");
-			if (!s) {
-				printf( "%s:%zu: invalid %s\n", filename, line_number, command);
-				fclose(file);
-				return false;
-			}
-			game_config.text_size = atof(s);
-			continue;
-		} else if (strcmp(command, "BUTTON_COLOR") == 0) {
-			if (!parse_color(strtok(NULL, "\n"), &game_config.button_color)) {
-				printf("%s:%zu: invalid %s\n", filename, line_number, command);
-				fclose(file);
-				return false;
-			}
 			continue;
 		} else if (strcmp(command, "MUSIC") == 0) {
 			char *value = strtok(NULL, " ");
@@ -247,6 +349,12 @@ static bool game_config_load(const char *filename) {
 			frame_colors = true;
 			has_frame_colors_block = true;
 			continue;
+		} else if (strcmp(command, "CHOICE") == 0) {
+			choice_block = true;
+			continue;
+		} else if (strcmp(command, "MESSAGE") == 0) {
+			message_block = true;
+			continue;
 		}
 		printf("%s:%zu: unknown command: %s\n", filename, line_number, command);
 		fclose(file);
@@ -255,6 +363,14 @@ static bool game_config_load(const char *filename) {
 	fclose(file);
 	if (frame_colors) {
 		printf("%s: missing END_FRAME_COLORS\n", filename);
+		return false;
+	}
+	if (message_block) {
+		printf("%s: missing END_MESSAGE\n", filename);
+		return false;
+	}
+	if (choice_block) {
+		printf("%s: missing END_CHOICE\n", filename);
 		return false;
 	}
 	if (!has_frame_colors_block) {
@@ -268,8 +384,11 @@ static bool game_config_load(const char *filename) {
 	return true;
 }
 
-static bool can_save() {
-	return game_mode == GAME_NORMAL && save_enabled();
+// Saving is offered only while the player explores a room: not during a
+// message, a sound, a mini-game or a timeline, nor while a choice is open,
+// since the save would not record it.
+static bool can_save(void) {
+	return game_mode == GAME_NORMAL && !pending_choice && save_enabled();
 }
 
 void game_minigame_start(const char *name) {
@@ -627,11 +746,11 @@ static void game_draw_room(void) {
 			C2D_TextParse(&text, text_buf, message_text);
 			C2D_TextOptimize(&text);
 			float width, height;
-			C2D_TextGetDimensions(&text, 0.5f, 0.5f, &width, &height);
+			C2D_TextGetDimensions(&text, game_config.message.text_size, game_config.message.text_size, &width, &height);
 			float box_height = height + 20.0f;
 			float box_y = 240.0f - box_height - 10.0f;
 			draw_framed_box(10.0f, box_y, 300.0f, box_height, 0.80f);
-			C2D_DrawText(&text, C2D_WithColor, 22.0f, box_y + 10.0f, 0.9f, 0.5f, 0.5f, game_config.text_color);
+			C2D_DrawText(&text, C2D_WithColor, 22.0f, box_y + 10.0f, 0.9f, game_config.message.text_size, game_config.message.text_size, game_config.message.text_color);
 		}
 	}
 }
@@ -642,30 +761,89 @@ static void draw_button(const char *label_id, float x, float y, bool selected) {
 	float width, height;
 	C2D_TextParse(&text, text_buf, lang_get(label_id));
 	C2D_TextOptimize(&text);
-	C2D_TextGetDimensions(&text, game_config.text_size, game_config.text_size, &width, &height);
+	C2D_TextGetDimensions(&text, game_config.choice.button_text_size, game_config.choice.button_text_size, &width, &height);
 	if (selected) {
-		C2D_DrawRectSolid(x - width / 2.0f - START_BUTTON_PADDING, y - height / 2.0f - START_BUTTON_PADDING, 0.95f, width + 2.0f * START_BUTTON_PADDING, height + 2.0f * START_BUTTON_PADDING, game_config.button_color);
+		C2D_DrawRectSolid(x - width / 2.0f - game_config.choice.button_padding, y - height / 2.0f - game_config.choice.button_padding, 0.98f, width + 2.0f * game_config.choice.button_padding, height + 2.0f * game_config.choice.button_padding, game_config.choice.button_color);
 	}
-	C2D_DrawText(&text, C2D_WithColor | C2D_AlignCenter, x, y - height / 2.0f, 0.96f, game_config.text_size, game_config.text_size, game_config.text_color);
+	C2D_DrawText(&text, C2D_WithColor | C2D_AlignCenter, x, y - height / 2.0f, 0.99f, game_config.choice.button_text_size, game_config.choice.button_text_size, game_config.choice.button_text_color);
 }
 
-// Draws the quit confirmation centered on the bottom screen: a dimmed
-// background, the question, and the No (left) / Yes (right) buttons.
-static void start_menu_draw(void) {
-	float box_x = (320.0f - START_BOX_WIDTH) / 2.0f;
-	float box_y = (240.0f - START_BOX_HEIGHT) / 2.0f;
-	C2D_DrawRectSolid(0.0f, 0.0f, 0.85f, 320.0f, 240.0f, C2D_Color32(0, 0, 0, 128));
-	draw_framed_box(box_x, box_y, START_BOX_WIDTH, START_BOX_HEIGHT, 0.90f);
+// True if option index of choice gets a button: the WHEN conditions of a room
+// choice, or "Save" only when saving is possible for the START menu.
+static bool choice_option_available(Choice *choice, size_t index) {
+	if (choice == &start_choice) {
+		return index != 1 || can_save();
+	}
+	return room_choice_option_is_available(&choice->options[index]);
+}
+
+// Index of the first available option, or 0 when there is none (game_update
+// then closes the choice).
+static size_t choice_first_available(Choice *choice) {
+	for (size_t i = 0; i < choice->option_count; i++) {
+		if (choice_option_available(choice, i)) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+// Number of available options, i.e. of buttons drawn.
+static size_t choice_visible_count(Choice *choice) {
+	size_t visible_count = 0;
+	for (size_t i = 0; i < choice->option_count; i++) {
+		if (choice_option_available(choice, i)) {
+			visible_count++;
+		}
+	}
+	return visible_count;
+}
+
+// Draws overlay_choice centered on the bottom screen: a dimmed background,
+// the framed box, the wrapped prompt, then one button per available option.
+// Draws nothing when no option is available (game_update closes the choice).
+static void game_draw_choice(void) {
+	size_t visible_count = choice_visible_count(overlay_choice);
+	if (visible_count == 0) {
+		return;
+	}
 	C2D_TextBufClear(text_buf);
-	float center_y = box_y + START_BOX_HEIGHT / 2.0f;
 
-	draw_button("GAME_OPTION_BACK", 160.0f, center_y - START_BUTTON_SPACING, (start_selected == 0));
-	if (can_save()) {
-		draw_button("GAME_OPTION_SAVE", 160.0f, center_y, (start_selected == 1));
+	// Prompt (not selectable).
+	C2D_Text text;
+	char *wrapped = text_render_wrap(lang_get(overlay_choice->prompt), game_config.choice.frame_width - 12.0f, game_config.choice.prompt_text_size);
+	if (!wrapped) {
+		wrapped = strdup(lang_get(overlay_choice->prompt));
 	}
-	draw_button("GAME_OPTION_QUIT", 160.0f, center_y + START_BUTTON_SPACING, (start_selected == 2));
-}
+	C2D_TextParse(&text, text_buf, wrapped);
+	free(wrapped);
+	C2D_TextOptimize(&text);
+	float width, height;
+	C2D_TextGetDimensions(&text, game_config.choice.prompt_text_size, game_config.choice.prompt_text_size, &width, &height);
 
+	float button_spacing = FONT_HEIGHT * game_config.choice.button_text_size + 2.0f * game_config.choice.button_padding;
+	float box_height = height + (visible_count + 1) * button_spacing + 24.0f;
+	float box_x = (320.0f - game_config.choice.frame_width) / 2.0f;
+	float box_y = (240.0f - box_height) / 2.0f;
+	float y = box_y + 12.0f + button_spacing / 2.0f;
+
+	C2D_DrawRectSolid(0.0f, 0.0f, 0.93f, 320.0f, 240.0f, C2D_Color32(0, 0, 0, 192));
+	draw_framed_box(box_x, box_y, game_config.choice.frame_width, box_height, 0.95f);
+
+	C2D_DrawText(&text, C2D_AlignCenter | C2D_WithColor, 160.0f, y - 9.0f, 0.99f, game_config.choice.prompt_text_size, game_config.choice.prompt_text_size, game_config.choice.prompt_text_color);
+
+	// Options.
+	y += height + button_spacing;
+	choice_first_button_y = y;
+	for (size_t i = 0; i < overlay_choice->option_count; i++) {
+		if (!choice_option_available(overlay_choice, i)) {
+			continue;
+		}
+		ChoiceOption *option = &overlay_choice->options[i];
+		draw_button(option->name, 160.0f, y, overlay_choice_selected == i);
+		y += button_spacing;
+	}
+}
 
 bool game_use_item(const char *id) {
 	refresh_target();
@@ -688,7 +866,7 @@ void game_cannot_use_item(void) {
 void game_show_message(const char *message_id, void (*callback)(void)) {
 	examine_image = (C2D_Image){0};
 	free(message_text);
-	message_text = text_render_wrap(lang_get(message_id), 276.0f, 0.5f);
+	message_text = text_render_wrap(lang_get(message_id), 276.0f, game_config.message.text_size);
 	if (!message_text) {
 		message_text = strdup(lang_get(message_id));
 	}
@@ -697,83 +875,147 @@ void game_show_message(const char *message_id, void (*callback)(void)) {
 	game_resume_callback = callback;
 }
 
+void game_show_choice(Choice *choice) {
+	size_t selected = choice ? choice_first_available(choice) : 0;
+	if (overlay_choice == &start_choice) {
+		pending_choice = choice;
+		pending_choice_selected = selected;
+	} else {
+		overlay_choice = choice;
+		overlay_choice_selected = selected;
+	}
+}
+
 void game_show_image(C2D_Image image, void (*callback)(void)) {
 	examine_image = image;
 	game_mode = GAME_MESSAGE;
 	game_resume_callback = callback;
 }
 
-bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
-	if (start_menu) {
-		bool activate = (keys & KEY_A);
+// Index of the available option whose button contains (x, y), or -1. Uses
+// the layout of the last frame drawn (choice_first_button_y).
+static int select_option(int x, int y) {
+	float box_x = (320.0f - game_config.choice.frame_width) / 2.0f;
+	float spacing = FONT_HEIGHT * game_config.choice.button_text_size + 2.0f * game_config.choice.button_padding;
 
-		if (keys & KEY_UP) {
-			if (start_selected > 0) {
-				start_selected--;
+	if (x < box_x || x >= box_x + game_config.choice.frame_width) {
+		return -1;
+	}
+
+	float button_y = choice_first_button_y;
+
+	for (size_t i = 0; i < overlay_choice->option_count; i++) {
+		if (!choice_option_available(overlay_choice, i)) {
+			continue;
+		}
+
+		if (y >= button_y - spacing / 2.0f && y < button_y + spacing / 2.0f) {
+			return (int)i;
+		}
+
+		button_y += spacing;
+	}
+
+	return -1;
+}
+
+bool game_update(u32 keys, circlePosition analog, touchPosition touch) {
+	// An open overlay takes every key: nothing reaches the room, the inventory
+	// or the current mode, except START which opens the START menu over a
+	// room choice. A room choice keeps the countdown running.
+	if (overlay_choice == &start_choice || (overlay_choice && game_mode == GAME_NORMAL)) {
+		if (overlay_choice != &start_choice) {
+			if (hud_update()) {
+				return true;
 			}
-			if (!can_save() && start_selected == 1) {
-				start_selected--;
+			// The state may have changed since the choice opened: once no
+			// option is left, it closes as if EXIT_CHOICE had run.
+			if (!choice_visible_count(overlay_choice)) {
+				room_choice_exit();
+				return true;
+			}
+			// An option, mini-game or timeline may have hidden the selected
+			// option: move to the first one still available.
+			if (!choice_option_available(overlay_choice, overlay_choice_selected)) {
+				overlay_choice_selected = choice_first_available(overlay_choice);
+			}
+		}
+		if (keys & KEY_UP) {
+			for (size_t i = overlay_choice_selected; i > 0; i--) {
+				if (choice_option_available(overlay_choice, i - 1)) {
+					overlay_choice_selected = i - 1;
+					break;
+				}
 			}
 		}
 
 		if (keys & KEY_DOWN) {
-			if (start_selected < 2) {
-				start_selected++;
-			}
-			if (!can_save() && start_selected == 1) {
-				start_selected++;
+			for (size_t i = overlay_choice_selected + 1; i < overlay_choice->option_count; i++) {
+				if (choice_option_available(overlay_choice, i)) {
+					overlay_choice_selected = i;
+					break;
+				}
 			}
 		}
 		if (keys & KEY_TOUCH) {
-			float box_x = (320.0f - START_BOX_WIDTH) / 2.0f;
-			float box_y = (240.0f - START_BOX_HEIGHT) / 2.0f;
-			float center_y = box_y + START_BOX_HEIGHT / 2.0f;
-			float button_y[] = {center_y - START_BUTTON_SPACING, center_y, center_y + START_BUTTON_SPACING};
-
-			if (touch.px >= box_x && touch.px <= box_x + START_BOX_WIDTH) {
-				for (int i = 0; i < 3; i++) {
-					if (!can_save() && i == 1) {
-						continue;
-					}
-					if (touch.py >= button_y[i] - START_BUTTON_SPACING / 2.0f && touch.py < button_y[i] + START_BUTTON_SPACING / 2.0f) {
-						start_selected = i;
-						activate = true;
-						break;
-					}
-				}
+			int index = select_option(touch.px, touch.py);
+			if (index < 0) {
+				return true;
 			}
+			overlay_choice_selected = index;
+			keys |= KEY_A;
 		}
 
-		if (keys & (KEY_B | KEY_START)) {
-			start_menu = false;
-			timer_resume();
+		if (keys & KEY_A) {
+			if (overlay_choice == &start_choice) {
+				overlay_choice = pending_choice;
+				pending_choice = NULL;
+
+				if (overlay_choice_selected == 2) {
+					return false;
+				}
+				timer_resume();
+
+				if (overlay_choice_selected == 1) {
+					game_show_message(save_write() ? "SAVE_SAVING_SUCCESS" : "SAVE_SAVING_ERROR", NULL);
+				}
+				overlay_choice_selected = pending_choice_selected;
+			} else {
+				room_choice_select(overlay_choice_selected);
+			}
+			return true;
+		}
+		// B closes the START menu, or leaves one level of room choice.
+		if (keys & KEY_B) {
+			if (overlay_choice == &start_choice) {
+				overlay_choice = pending_choice;
+				overlay_choice_selected = pending_choice_selected;
+				pending_choice = NULL;
+				timer_resume();
+			} else {
+				room_choice_exit();
+			}
 			return true;
 		}
 
-		if (activate) {
-			switch (start_selected) {
-			case 0:
-				start_menu = false;
-				break;
-			case 1:
-				start_menu = false;
-				if (!save_write()) {
-					game_show_message("SAVE_SAVING_ERROR", NULL);
-				} else {
-					game_show_message("SAVE_SAVING_SUCCESS", NULL);
-				}
-				break;
-			case 2:
-				return false;
-			}
-			timer_resume();
+		if (!(keys & KEY_START)) {
+			return true;
 		}
-		return true;
+
+		if (overlay_choice == &start_choice) {
+			overlay_choice = pending_choice;
+			overlay_choice_selected = pending_choice_selected;
+			pending_choice = NULL;
+			timer_resume();
+			return true;
+		}
 	}
 
-	if (keys & KEY_START) {
-		start_menu = true;
-		start_selected = 0;
+	if (keys & KEY_START)  {
+		pending_choice = overlay_choice;
+		overlay_choice = &start_choice;
+		pending_choice_selected = overlay_choice_selected;
+		overlay_choice_selected = choice_first_available(overlay_choice);
 		return true;
 	}
 
@@ -881,8 +1123,10 @@ void game_draw(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
 			hud_draw();
 			break;
 	}
-	if (start_menu) {
+	// Same rule as game_update: the START menu in every mode, a room choice
+	// only in GAME_NORMAL.
+	if (overlay_choice == &start_choice || (overlay_choice && game_mode == GAME_NORMAL)) {
 		C2D_SceneBegin(bottom);
-		start_menu_draw();
+		game_draw_choice();
 	}
 }

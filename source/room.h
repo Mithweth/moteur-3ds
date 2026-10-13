@@ -5,6 +5,9 @@
 // Only one room is loaded at a time; game_set_room() closes the current one
 // and initializes the next. The room script format is documented in
 // docs/ROOMS.en.md.
+// A CHOICE action opens a choice file stored next to the room script
+// (docs/CHOICES.en.md); room.c keeps the stack of open choices and runs the
+// option the player picks, game.c draws the choice and reads the input.
 #pragma once
 
 #include <citro2d.h>
@@ -20,6 +23,13 @@
 #define ROOM_MAX_ACTION_BLOCKS    8
 #define ROOM_MAX_ACTIONS         16
 #define ROOM_MAX_USES             8
+
+// Capacities of a choice file (see docs/CHOICES.en.md): options per CHOICE
+// block, CHOICE blocks per file, and how many choices can be stacked by
+// nested CHOICE actions.
+#define CHOICE_MAX_OPTIONS       16
+#define CHOICE_MAX_CHOICES       16
+#define CHOICE_MAX_DEPTH          8
 
 // Kind of test performed by a WHEN directive.
 typedef enum {
@@ -49,6 +59,8 @@ typedef enum {
 	ROOM_ACTION_WAIT_SFX,
 	ROOM_ACTION_ROOM,
 	ROOM_ACTION_TIMELINE,
+	ROOM_ACTION_CHOICE,
+	ROOM_ACTION_EXIT_CHOICE,
 	ROOM_ACTION_MINIGAME
 } RoomActionType;
 
@@ -134,6 +146,24 @@ typedef struct {
 	Path southeast;
 } Room;
 
+// One OPTION of a choice: name is the translation key of its button. Its
+// WHEN conditions decide whether the button is shown, its actions run when
+// the player picks it.
+typedef struct {
+	char *name;
+	RoomActionBlock block;
+} ChoiceOption;
+
+// One CHOICE block of a choice file: name identifies it within the file
+// (MAIN is the entry point), prompt is the translation key of the question.
+// Also used by game.c for the START menu, whose fields are static strings.
+typedef struct {
+	char *name;
+	char *prompt;
+	ChoiceOption options[CHOICE_MAX_OPTIONS];
+	size_t option_count;
+} Choice;
+
 // Move in the given direction: runs the path's ACTION blocks if the path is
 // available. Does nothing when no room is loaded.
 void room_move_north(void);
@@ -177,3 +207,16 @@ Hotspot *room_find_hotspot(int x, int y);
 // First available hotspot with this id, or NULL. Several hotspots may share
 // an id (e.g. a closed and an open door with opposite conditions).
 Hotspot *room_find_hotspot_by_id(const char *id);
+
+// True if a choice is open and the WHEN conditions of option match, i.e.
+// its button should be shown.
+bool room_choice_option_is_available(const ChoiceOption *option);
+// Runs the actions of option index of the innermost open choice. Does
+// nothing if no choice is open, the index is out of range or the option is
+// not available. The choice stays open unless the actions leave it.
+void room_choice_select(size_t index);
+// Closes the innermost open choice, as EXIT_CHOICE does: its parent choice
+// is shown again (or the choice file is freed for the outermost one) and the
+// actions that followed its CHOICE action resume. Used for the B button.
+// Does nothing if no choice is open.
+void room_choice_exit(void);

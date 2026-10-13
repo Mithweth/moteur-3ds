@@ -8,9 +8,20 @@
 # ITEM <id>                 optional, starting item (max 16, one per line)
 # SAVE sdmc:/<file>         optional, enables saving and CONTINUE
 # CANNOT_USE_MESSAGE <key>  optional, shown when an item has no use there
-# TEXT_COLOR <rgba>         message box and Start menu text (default white)
-# TEXT_SIZE <scale>         Start menu buttons (default 0.6)
-# BUTTON_COLOR <rgba>       behind the selected Start menu button
+#
+# MESSAGE ... END_MESSAGE   optional, message box text
+#   TEXT_COLOR <rgba>       text color (default 255 255 255 255)
+#   TEXT_SIZE <scale>       text scale (default 0.6)
+#
+# CHOICE ... END_CHOICE     optional, choice box (CHOICE action) and
+#                           Start menu
+#   FRAME_WIDTH <px>        box width, centered (default 276)
+#   PROMPT_TEXT_COLOR <rgba>  question color (default 255 255 255 255)
+#   PROMPT_TEXT_SIZE <scale>  question scale (default 0.6)
+#   BUTTON_TEXT_COLOR <rgba>  option color (default 255 255 255 255)
+#   BUTTON_TEXT_SIZE <scale>  option scale (default 0.6)
+#   BUTTON_COLOR <rgba>     behind the selected option (default 105 82 40 255)
+#   BUTTON_PADDING <px>     margin around an option (default 5)
 #
 # FRAME_COLORS ... END_FRAME_COLORS   required, frame layers (out -> in);
 #                                     a missing layer is not drawn
@@ -22,9 +33,19 @@
 
 ROOM sample1
 #SAVE sdmc:/moteur.save
-TEXT_COLOR 255 255 255 255
-TEXT_SIZE 0.6
-BUTTON_COLOR 105 82 40 255
+MESSAGE
+    TEXT_COLOR 255 255 255 255
+    TEXT_SIZE 0.5
+END_MESSAGE
+CHOICE
+    FRAME_WIDTH 260
+    BUTTON_TEXT_COLOR 255 255 255 255
+    BUTTON_TEXT_SIZE 0.5
+    BUTTON_COLOR 105 82 40 255
+    PROMPT_TEXT_COLOR 255 255 255 255
+    PROMPT_TEXT_SIZE 0.5
+    BUTTON_PADDING 5
+END_CHOICE
 FRAME_COLORS
     SHADOW 0 0 0 150
     OUTER_BORDER 150 120 55 255
