@@ -37,9 +37,11 @@ main()
 ├── audio_init()                      (no DSP firmware: silent game, no error)
 └── game_init()
     ├── callbacks_init()              init() of every inventory callback
-    ├── game_config_load()            romfs:/game/game
+    ├── config_load()                 romfs:/game/game
     ├── inventory_init()              romfs:/inventory/inventory (+ callback resolution)
     ├── hud_init()                    romfs:/hud/hud
+    ├── ui_init()                     text buffer of messages and buttons
+    ├── choice_init()                 text buffer of the choice overlay
     └── game_title_start()            romfs:/game/title
 ```
 
@@ -50,8 +52,9 @@ the save).
 
 At exit, `main()` calls `game_close()` before `audio_close()` and
 `C2D_Fini()`: it closes the active mini-game, the room, the title
-screen, the timeline and the music, then the HUD, the inventory and,
-last, every inventory callback (`callbacks_close()`).
+screen, the timeline and the music, then the choice overlay, the UI, the
+configuration, the HUD, the inventory and, last, every inventory
+callback (`callbacks_close()`).
 
 ### 1.2. Game modes
 
@@ -95,6 +98,23 @@ offered in `GAME_NORMAL` with no choice open: **you never save in the
 middle of a mini-game**, nor in the middle of a room action block
 suspended by a message, a sound, a timeline or a choice, which has
 consequences for their design (section 5.4).
+
+### 1.3. Engine modules
+
+`game.c` is the `GameMode` state machine: it dispatches the input and
+the drawing, and changes mode. The rest of the work is split as
+follows:
+
+| Module      | Role                                                                                     |
+|-------------|------------------------------------------------------------------------------------------|
+| `config`    | reads `romfs:/game/game` and exposes its values read-only (`config_*()`)                 |
+| `room`      | loads a room (images, hotspots, paths), draws it, handles movement                       |
+| `script`    | `WHEN` conditions and `ACTION` directives shared by rooms and choices; resumes a block suspended by a message, a sound or a timeline |
+| `choice`    | choice files, the stack of open choices and the START menu, which share the same overlay |
+| `ui`        | draws the frames, buttons, messages and examine images                                   |
+| `hud`, `inventory`, `timeline`, `title`, `audio`, `lang`, `save`, `gamestate`, `gfxmap` | see their header |
+
+Extensions only use the headers listed in section 7.
 
 ## 2. From `resources/` to the romfs
 
@@ -1023,7 +1043,8 @@ END_ITEM
 ## 7. The public API for extensions
 
 Extensions only reach the engine through these headers. Everything
-else (`room.h`, `hud.h`, `title.h`...) is internal.
+else (`room.h`, `script.h`, `choice.h`, `ui.h`, `config.h`, `hud.h`,
+`title.h`...) is internal.
 
 ### `game.h` — modes and game flow
 

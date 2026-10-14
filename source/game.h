@@ -43,6 +43,11 @@ typedef enum {
 	GAME_TIMELINE   // a scripted sequence (intro, game over, ending) is playing
 } GameMode;
 
+// --------- FRAME LOOP
+
+// Current game mode (used by the CHOICE overlay to decide SAVE availability).
+GameMode game_get_mode(void);
+
 // Per-frame update, called by main. keys are the keys pressed this frame
 // (hidKeysDown); dispatches on the current GameMode. START opens the start
 // menu (Back, Save, Quit), which takes all the input until it is closed; Save
@@ -55,44 +60,7 @@ bool game_update(u32 keys, circlePosition analog, touchPosition touch);
 // C3D_FrameBegin and C3D_FrameEnd.
 void game_draw(C3D_RenderTarget *top, C3D_RenderTarget *bottom);
 
-// Starts the timeline in romfs:/timelines/<name> and switches to
-// GAME_TIMELINE. Returns true if it started; otherwise goes back to the title
-// screen and returns false. When it ends, END goes back to the title screen
-// and RETURN to GAME_NORMAL in the current room, then calls callback (may be
-// NULL). callback is never called after END, after a RETURN from the title
-// screen, or when the timeline fails to load. Drops the callback of a message
-// or WAIT_SFX that the timeline replaces.
-bool game_timeline_start(const char *name, void (*callback)(void));
-
-// Releases everything the game holds: the active mini-game, the room, the
-// title screen, the timeline, the music, the message text buffer, the HUD,
-// the inventory and the inventory callbacks (callbacks_close). Called once by
-// main at exit, before audio_close, since closing a mini-game or a timeline
-// may still use NDSP.
-void game_close(void);
-
-// Loads the inventory, the HUD and the extensions, then shows the title
-// screen. Must be called exactly once, from main, at start-up; a second call
-// is refused. Use game_title_start to come back to the title screen.
-bool game_init(void);
-
-// Goes (back) to the title screen from any state: closes the mini-game, the
-// room and the timeline, and stops the music. May be called any number of
-// times. Returns false if the title screen can't be loaded.
-bool game_title_start(void);
-
-// Leaves the title screen and continues the saved game: resets the game like
-// game_start, then restores the save (see save_read). If the save cannot be
-// read, starts a new game instead. Either way, shows a message telling the
-// player whether loading succeeded, unless the new game could not start
-// either (back on the title screen, see game_start).
-void game_load(void);
-
-// Leaves the title screen and starts a new game: resets the extensions (new
-// secret code), inventory, game states and timer, starts the music, gives the
-// starting ITEMs and enters the ROOM set in romfs:/game/game. Returns false,
-// back on the title screen, if that room cannot be loaded.
-bool game_start(void);
+// --------- ROOMS AND INVENTORY
 
 // Name of the current room, as last passed to game_set_room (empty before the
 // first room). Used by save_write. Points to a static buffer overwritten by
@@ -121,17 +89,34 @@ bool game_use_item(const char *id);
 // a target. Does nothing otherwise.
 void game_cannot_use_item(void);
 
-// Shows the translated message for message_id and switches to GAME_MESSAGE.
-// Once A, B or touch dismisses it, back to GAME_NORMAL, then calls callback
-// (may be NULL). A later mode change in the same frame (room change,
-// timeline, mini-game, WAIT_SFX) replaces the message before it is ever
-// displayed, and callback is never called.
-void game_show_message(const char *message_id, void (*callback)(void));
+// --------- MODE TRANSITIONS
 
-// Shows an image centered over the room and switches to GAME_MESSAGE.
-// The image must stay valid until the message is dismissed. callback works as
-// in game_show_message.
-void game_show_image(C2D_Image image, void (*callback)(void));
+// Goes (back) to the title screen from any state: closes the mini-game, the
+// room and the timeline, and stops the music. May be called any number of
+// times. Returns false if the title screen can't be loaded.
+bool game_title_start(void);
+
+// Leaves the title screen and continues the saved game: resets the game like
+// game_start, then restores the save (see save_read). If the save cannot be
+// read, starts a new game instead. Either way, shows a message telling the
+// player whether loading succeeded, unless the new game could not start
+// either (back on the title screen, see game_start).
+void game_load(void);
+
+// Leaves the title screen and starts a new game: resets the extensions (new
+// secret code), inventory, game states and timer, starts the music, gives the
+// starting ITEMs and enters the ROOM set in romfs:/game/game. Returns false,
+// back on the title screen, if that room cannot be loaded.
+bool game_start(void);
+
+// Starts the timeline in romfs:/timelines/<name> and switches to
+// GAME_TIMELINE. Returns true if it started; otherwise goes back to the title
+// screen and returns false. When it ends, END goes back to the title screen
+// and RETURN to GAME_NORMAL in the current room, then calls callback (may be
+// NULL). callback is never called after END, after a RETURN from the title
+// screen, or when the timeline fails to load. Drops the callback of a message
+// or WAIT_SFX that the timeline replaces.
+bool game_timeline_start(const char *name, void (*callback)(void));
 
 // Starts the mini-game registered under name (see callbacks.c), stops the
 // music and switches to GAME_MINIGAME. Does nothing if the name is unknown or
@@ -147,10 +132,30 @@ void game_minigame_stop(void);
 // the sound could not be started; the caller must then continue on its own.
 bool game_wait_for_sfx(const char *sfx, void (*callback)(void));
 
-// Shows choice on the bottom screen, or hides it when choice is NULL; called
-// by room.c whenever the innermost open choice changes. Not meant for
-// extensions. The selection starts on the first available option. While the
-// START menu is open, the choice is kept aside and shown once the menu closes.
-// The choice only takes the input in GAME_NORMAL: it is hidden while its own
-// messages, sounds, timelines or mini-games run.
-void game_show_choice(Choice *choice);
+// --------- MESSAGES
+
+// Shows the translated message for message_id and switches to GAME_MESSAGE.
+// Once A, B or touch dismisses it, back to GAME_NORMAL, then calls callback
+// (may be NULL). A later mode change in the same frame (room change,
+// timeline, mini-game, WAIT_SFX) replaces the message before it is ever
+// displayed, and callback is never called.
+void game_show_message(const char *message_id, void (*callback)(void));
+
+// Shows an image centered over the room and switches to GAME_MESSAGE.
+// The image must stay valid until the message is dismissed. callback works as
+// in game_show_message.
+void game_show_image(C2D_Image image, void (*callback)(void));
+
+// --------- INITIALIZATION AND CLEANUP
+
+// Loads the inventory, the HUD and the extensions, then shows the title
+// screen. Must be called exactly once, from main, at start-up; a second call
+// is refused. Use game_title_start to come back to the title screen.
+bool game_init(void);
+
+// Releases everything the game holds: the active mini-game, the room, the
+// title screen, the timeline, the music, the UI and CHOICE buffers, the HUD,
+// the inventory and the inventory callbacks (callbacks_close). Called once by
+// main at exit, before audio_close, since closing a mini-game or a timeline
+// may still use NDSP.
+void game_close(void);

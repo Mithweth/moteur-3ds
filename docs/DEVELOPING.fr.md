@@ -37,9 +37,11 @@ main()
 ├── audio_init()                      (sans firmware DSP : jeu muet, pas d'erreur)
 └── game_init()
     ├── callbacks_init()              init() de chaque callback d'inventaire
-    ├── game_config_load()            romfs:/game/game
+    ├── config_load()                 romfs:/game/game
     ├── inventory_init()              romfs:/inventory/inventory (+ résolution des callbacks)
     ├── hud_init()                    romfs:/hud/hud
+    ├── ui_init()                     tampon de texte des messages et des boutons
+    ├── choice_init()                 tampon de texte de l'overlay de choix
     └── game_title_start()            romfs:/game/title
 ```
 
@@ -50,8 +52,9 @@ Puis, à chaque nouvelle partie (`game_start`) ou chargement
 
 À la sortie, `main()` appelle `game_close()` avant `audio_close()` et
 `C2D_Fini()` : il ferme le mini-jeu actif, la pièce, l'écran titre, la
-timeline et la musique, puis le HUD, l'inventaire et, en dernier, chaque
-callback d'inventaire (`callbacks_close()`).
+timeline et la musique, puis l'overlay de choix, l'UI, la configuration,
+le HUD, l'inventaire et, en dernier, chaque callback d'inventaire
+(`callbacks_close()`).
 
 ### 1.2. Les modes de jeu
 
@@ -98,6 +101,22 @@ ouvert : **on ne sauvegarde jamais au milieu d'un mini-jeu**, ni au
 milieu d'un bloc d'actions de pièce suspendu par un message, un son, une
 timeline ou un choix, ce qui a des conséquences pour leur conception
 (section 5.4).
+
+### 1.3. Les modules du moteur
+
+`game.c` est la machine à états `GameMode` : il distribue les touches et
+l'affichage, et change de mode. Le reste du travail se répartit ainsi :
+
+| Module      | Rôle                                                                                     |
+|-------------|------------------------------------------------------------------------------------------|
+| `config`    | lit `romfs:/game/game` et expose ses valeurs en lecture seule (`config_*()`)             |
+| `room`      | charge une pièce (images, hotspots, chemins), la dessine, gère les déplacements          |
+| `script`    | conditions `WHEN` et directives `ACTION` communes aux pièces et aux choix ; reprend un bloc suspendu par un message, un son ou une timeline |
+| `choice`    | fichiers de choix, pile des choix ouverts et menu START, qui partagent le même overlay   |
+| `ui`        | dessine les cadres, les boutons, les messages et les images d'examen                     |
+| `hud`, `inventory`, `timeline`, `title`, `audio`, `lang`, `save`, `gamestate`, `gfxmap` | voir leur en-tête |
+
+Les extensions n'utilisent que les en-têtes listés en section 7.
 
 ## 2. De `resources/` à la romfs
 
@@ -1039,7 +1058,8 @@ END_ITEM
 ## 7. L'API publique des extensions
 
 Les extensions n'accèdent au moteur que par ces en-têtes. Tout le reste
-(`room.h`, `hud.h`, `title.h`...) est interne.
+(`room.h`, `script.h`, `choice.h`, `ui.h`, `config.h`, `hud.h`,
+`title.h`...) est interne.
 
 ### `game.h` — modes et flux de jeu
 
