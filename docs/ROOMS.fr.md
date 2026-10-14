@@ -16,7 +16,9 @@ romfs:/rooms/livingroom/room
 ```
 
 Ses ressources graphiques sont chargées depuis l'ensemble de ressources
-correspondant à la pièce.
+correspondant à la pièce. Le même répertoire peut contenir des fichiers
+de choix, ouverts par l'action `CHOICE` (voir
+[CHOICES.fr.md](./CHOICES.fr.md)).
 
 Une pièce contient généralement trois sections :
 
@@ -480,6 +482,12 @@ Les actions sont valides dans les blocs `ACTION` et `USE`.
   `MINIGAME <name>`                   Démarre un mini-jeu. **Termine le
                                       flux d'actions courant et doit être
                                       la dernière action de son bloc.**
+
+  `CHOICE <file>`                     Affiche le fichier de choix
+                                      `<file>` du répertoire de la pièce
+                                      et suspend l'exécution jusqu'à ce
+                                      que le joueur le quitte (voir
+                                      [CHOICES.fr.md](./CHOICES.fr.md)).
   -----------------------------------------------------------------------
 
 Les effets sonores peuvent être indiqués soit par un nom relatif au répertoire
@@ -592,6 +600,29 @@ Passer la timeline avec **B** atteint quand même son `RETURN` ou son
 `ACTION` suivants ne sont pas exécutés après la timeline. Les actions
 placées **avant** `TIMELINE` prennent effet tout de suite, mais le
 joueur ne voit leur résultat qu'à son retour dans la pièce.
+
+### Actions après un choix
+
+`CHOICE` suspend le bloc de la même façon que `MESSAGE`, jusqu'à ce que
+le joueur quitte le choix, par une option qui exécute `EXIT_CHOICE` ou
+avec **B** :
+
+``` text
+ACTION
+    CHOICE dustbin
+    SFX bin_lid_close
+END_ACTION
+```
+
+Le son est joué une fois le choix fermé. Les options du choix exécutent
+leurs propres actions tant qu'il est ouvert (voir
+[CHOICES.fr.md](./CHOICES.fr.md)). Comme pour `WAIT_SFX`, les blocs
+`ACTION` suivants ne sont pas exécutés après le choix. Si le fichier de choix ne peut pas être chargé, ou si toutes
+les options sont masquées par leurs conditions, le choix n'est pas
+affiché et la suite du bloc s'exécute aussitôt.
+
+`EXIT_CHOICE` n'a de sens que dans un fichier de choix : dans un fichier
+de pièce, il ne fait rien.
 
 ### Actions terminales
 
@@ -706,8 +737,8 @@ Lorsqu'une pièce est active :
 4.  Les actions normales d'un hotspot parcourent tous les blocs `ACTION`
     dans leur ordre de déclaration. Chaque bloc correspondant est
     exécuté, sauf si le flux d'actions est suspendu par `MESSAGE`,
-    `MESSAGE_IMAGE`, `WAIT_SFX` ou `TIMELINE`, ou terminé par `ROOM` ou
-    `MINIGAME`.
+    `MESSAGE_IMAGE`, `WAIT_SFX`, `TIMELINE` ou `CHOICE`, ou terminé par
+    `ROOM` ou `MINIGAME`.
 5.  L'utilisation d'un objet parcourt les blocs `USE` dans leur ordre de
     déclaration et exécute le premier bloc dont l'objet et les
     conditions correspondent.

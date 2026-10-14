@@ -82,12 +82,22 @@ stick circulaire change de pièce…), si le jeu est revenu en
   dans un bloc `ACTION`), le toucher ne fait que le fermer, sinon il
   relancerait l'action.
 
-Le menu START se superpose à tout ça et prend toutes les touches tant
-qu'il est ouvert ; un message reste affiché en dessous. La sauvegarde
-n'est proposée qu'en `GAME_NORMAL` : **on ne sauvegarde jamais au milieu
-d'un mini-jeu**, ni au milieu d'un bloc d'actions de pièce suspendu par
-un message, un son ou une timeline, ce qui a des conséquences pour leur
-conception (section 5.4).
+Un choix ouvert par l'action de pièce `CHOICE` (voir `CHOICES.fr.md`)
+s'affiche par-dessus la pièce en `GAME_NORMAL` et prend toutes les
+touches tant qu'il est ouvert : pas de déplacement, pas de hotspot, pas
+d'inventaire. Il est masqué pendant les messages, sons, timelines ou
+mini-jeux lancés par ses options, et revient une fois le jeu repassé en
+`GAME_NORMAL`. Le compte à rebours du HUD continue de tourner sous un
+choix.
+
+Le menu START se superpose à tout ça, dans tous les modes, et prend
+toutes les touches tant qu'il est ouvert ; le mode en cours est en pause
+en dessous, et un message ou un choix reste affiché une fois le menu
+fermé. La sauvegarde n'est proposée qu'en `GAME_NORMAL`, sans choix
+ouvert : **on ne sauvegarde jamais au milieu d'un mini-jeu**, ni au
+milieu d'un bloc d'actions de pièce suspendu par un message, un son, une
+timeline ou un choix, ce qui a des conséquences pour leur conception
+(section 5.4).
 
 ## 2. De `resources/` à la romfs
 
@@ -205,6 +215,7 @@ flowchart LR
     GAME["game/game<br/>(GAMESTART)"]
     TITLE["game/title<br/>(TITLE)"]
     ROOM["rooms/&lt;nom&gt;/room<br/>(ROOMS)"]
+    CHO["rooms/&lt;nom&gt;/&lt;fichier&gt;<br/>(CHOICES)"]
     INV["inventory/inventory"]
     HUD["hud/hud<br/>(HUD)"]
     TL["timelines/&lt;nom&gt;<br/>(TIMELINES)"]
@@ -218,11 +229,13 @@ flowchart LR
     ROOM -- "ROOM" --> ROOM
     ROOM -- "TIMELINE" --> TL
     ROOM -- "MINIGAME" --> EXT
+    ROOM -- "CHOICE" --> CHO
     ROOM -- "WHEN STATE_IS / SET" --> STATE
     ROOM -- "INVENTORY_ADD / USE" --> INV
     INV -- "EXAMINE_CALLBACK / USE_CALLBACK" --> EXT
     EXT -- "gamestate_set / game_*" --> STATE
     ROOM -. "clés" .-> LANG
+    CHO -. "clés" .-> LANG
     INV -. "clés" .-> LANG
     HUD -. "clés" .-> LANG
     TL -. "clés" .-> LANG
@@ -291,6 +304,14 @@ END_HOTSPOT
 Les images d'une pièce sont cherchées dans son propre répertoire, tout
 comme ses sons donnés par un nom relatif (`SFX door_open`) ; un son peut
 aussi être donné par son chemin absolu (section 2.1).
+
+Le répertoire de la pièce peut aussi contenir des **fichiers de choix**,
+ouverts par `CHOICE <fichier>` : une question avec une liste d'options,
+qui exécutent chacune les mêmes actions qu'un bloc de pièce, et peuvent
+s'imbriquer pour écrire une conversation. Pour la carte des
+dépendances, leurs options sont des liens de la pièce : elles utilisent
+les mêmes états, objets, images, mini-jeux et clés de traduction.
+→ [CHOICES.fr.md](./CHOICES.fr.md)
 
 ### 3.5. `inventory/inventory` — le catalogue d'objets
 
@@ -1110,6 +1131,7 @@ d'inventaire (sauvegardé) et un mini-jeu (non sauvegardé).
 | `resources/game/game`           | [GAMESTART.fr.md](./GAMESTART.fr.md)            |
 | `resources/game/title`          | [TITLE.fr.md](./TITLE.fr.md)                    |
 | `resources/rooms/<nom>/room`    | [ROOMS.fr.md](./ROOMS.fr.md)                    |
+| `resources/rooms/<nom>/<fichier>` (choix) | [CHOICES.fr.md](./CHOICES.fr.md)      |
 | `resources/hud/hud`             | [HUD.fr.md](./HUD.fr.md)                        |
 | `resources/timelines/<nom>`     | [TIMELINES.fr.md](./TIMELINES.fr.md)            |
 | `resources/lang/*.lang`         | [TRANSLATIONS.fr.md](./TRANSLATIONS.fr.md)      |

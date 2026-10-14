@@ -81,11 +81,20 @@ another room...), if the game is back in `GAME_NORMAL`. Two exceptions:
   `ACTION` block), the touch only closes it, otherwise it would run the
   action again.
 
-The START menu sits on top of all this and takes all the input while it
-is open; a message stays displayed under it. Saving is only offered in
-`GAME_NORMAL`: **you never save in the middle of a mini-game**, nor in
-the middle of a room action block suspended by a message, a sound or a
-timeline, which has consequences for their design (section 5.4).
+A choice opened by the `CHOICE` room action (see `CHOICES.en.md`) is
+shown over the room in `GAME_NORMAL` and takes all the input while it is
+open: no movement, no hotspot, no inventory. It is hidden while the
+messages, sounds, timelines or mini-games started by its options run,
+and comes back once the game is back in `GAME_NORMAL`. The HUD countdown
+keeps running under a choice.
+
+The START menu sits on top of all this, in every mode, and takes all the
+input while it is open; the current mode is paused under it, and a
+message or a choice stays displayed once it is closed. Saving is only
+offered in `GAME_NORMAL` with no choice open: **you never save in the
+middle of a mini-game**, nor in the middle of a room action block
+suspended by a message, a sound, a timeline or a choice, which has
+consequences for their design (section 5.4).
 
 ## 2. From `resources/` to the romfs
 
@@ -201,6 +210,7 @@ flowchart LR
     GAME["game/game<br/>(GAMESTART)"]
     TITLE["game/title<br/>(TITLE)"]
     ROOM["rooms/&lt;name&gt;/room<br/>(ROOMS)"]
+    CHO["rooms/&lt;name&gt;/&lt;file&gt;<br/>(CHOICES)"]
     INV["inventory/inventory"]
     HUD["hud/hud<br/>(HUD)"]
     TL["timelines/&lt;name&gt;<br/>(TIMELINES)"]
@@ -214,11 +224,13 @@ flowchart LR
     ROOM -- "ROOM" --> ROOM
     ROOM -- "TIMELINE" --> TL
     ROOM -- "MINIGAME" --> EXT
+    ROOM -- "CHOICE" --> CHO
     ROOM -- "WHEN STATE_IS / SET" --> STATE
     ROOM -- "INVENTORY_ADD / USE" --> INV
     INV -- "EXAMINE_CALLBACK / USE_CALLBACK" --> EXT
     EXT -- "gamestate_set / game_*" --> STATE
     ROOM -. "keys" .-> LANG
+    CHO -. "keys" .-> LANG
     INV -. "keys" .-> LANG
     HUD -. "keys" .-> LANG
     TL -. "keys" .-> LANG
@@ -285,6 +297,13 @@ END_HOTSPOT
 A room's images are looked up in its own directory, and so are its
 sounds given by a relative name (`SFX door_open`); a sound can also be
 given by its absolute path (section 2.1).
+
+The room directory may also hold **choice files**, opened by
+`CHOICE <file>`: a question with a list of options, each running the
+same actions as a room block, possibly nested to write a conversation.
+Their options are links of the room, for the dependency map: they use
+the same states, items, images, mini-games and translation keys.
+→ [CHOICES.en.md](./CHOICES.en.md)
 
 ### 3.5. `inventory/inventory` — the item catalogue
 
@@ -1094,6 +1113,7 @@ This is the right way to share state between an inventory callback
 | `resources/game/game`           | [GAMESTART.en.md](./GAMESTART.en.md)            |
 | `resources/game/title`          | [TITLE.en.md](./TITLE.en.md)                    |
 | `resources/rooms/<name>/room`   | [ROOMS.en.md](./ROOMS.en.md)                    |
+| `resources/rooms/<name>/<file>` (choices) | [CHOICES.en.md](./CHOICES.en.md)      |
 | `resources/hud/hud`             | [HUD.en.md](./HUD.en.md)                        |
 | `resources/timelines/<name>`    | [TIMELINES.en.md](./TIMELINES.en.md)            |
 | `resources/lang/*.lang`         | [TRANSLATIONS.en.md](./TRANSLATIONS.en.md)      |

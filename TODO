@@ -1,29 +1,6 @@
-add CHOICE capacities
-HOTSPOT DRAWER ...
-    ACTION
-        MESSAGE DRAWER_OPEN
-
-        CHOICE
-            OPTION TAKE_SCREWDRIVER
-                INVENTORY_ADD SCREWDRIVER
-                MESSAGE SCREWDRIVER_TAKEN
-            END_OPTION
-
-            OPTION TAKE_MAGNIFYING_GLASS
-                INVENTORY_ADD MAGNIFYING_GLASS
-                MESSAGE MAGNIFYING_GLASS_TAKEN
-            END_OPTION
-
-            OPTION TAKE_NOTHING
-            END_OPTION
-        END_CHOICE
-
-        SFX drawer_close
-    END_ACTION
-END_HOTSPOT
 add more colors
 localized pictures
-add ACTION after ROOM directive
+add ENTER event in ROOMs
 add timed events
   TIME_IS 08:00 18:00
 with 3DS real clock and discrete clock support

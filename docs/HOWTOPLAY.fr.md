@@ -85,6 +85,15 @@ lorsque cette opération est possible.
 Le comportement exact d'une séquence — possibilité de l'accélérer, de la
 passer ou de revenir au jeu — est défini par l'aventure.
 
+Une aventure peut aussi poser une question à plusieurs réponses,
+affichées sous forme de liste de boutons sur l'écran du bas, par exemple
+pendant une conversation. Passez d'une réponse à l'autre avec **haut**
+et **bas** (croix directionnelle ou stick circulaire), puis appuyez sur
+**A**, ou touchez directement la réponse. **B** revient à la question
+précédente, ou ferme la liste. Tant que la liste est affichée, vous ne
+pouvez ni vous déplacer ni utiliser d'objet ; un compte à rebours, si
+l'aventure en a un, continue de tourner.
+
 ## 6. Mini-jeux
 
 MOTEUR permet à un jeu d'intégrer ses propres mini-jeux écrits en C.

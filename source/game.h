@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "inventory.h"
+#include "room.h"
 
 // Not used anywhere at the moment.
 typedef struct {
@@ -145,3 +146,11 @@ void game_minigame_stop(void);
 // ends, then goes back to GAME_NORMAL and calls callback (may be NULL). Returns false without changing mode if
 // the sound could not be started; the caller must then continue on its own.
 bool game_wait_for_sfx(const char *sfx, void (*callback)(void));
+
+// Shows choice on the bottom screen, or hides it when choice is NULL; called
+// by room.c whenever the innermost open choice changes. Not meant for
+// extensions. The selection starts on the first available option. While the
+// START menu is open, the choice is kept aside and shown once the menu closes.
+// The choice only takes the input in GAME_NORMAL: it is hidden while its own
+// messages, sounds, timelines or mini-games run.
+void game_show_choice(Choice *choice);
